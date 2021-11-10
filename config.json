@@ -1,0 +1,19 @@
+{
+    "devices": [
+        "Arduino Mega 2560",
+        "Arduino Mega 2561",
+        "Arduino Leonardo",
+        "Arduino Due",
+        "Arduino Uno"
+    ],
+    "text": {
+        "Autor": [
+            "Wykona\u0142: Adrian Zaj\u0105czkowski",
+            20
+        ],
+        "Start": [
+            "Ci\u0105gly pomiar okresu sygna\u0142y przy wykorzystaniu platformy Arduino",
+            20
+        ]
+    }
+}
