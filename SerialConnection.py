@@ -7,11 +7,10 @@ class SerialConnection:
         super(SerialConnection, self).__init__()
         self.data = []
         self.devicesList = []
-        self.COM = 'COM6'
-        self.baudrate = '115200'
+        self.COM = ''
+        self.baudrate = ''
         self.connection = ''
         self.ports = []
-        #self.connect(self.COM, self.baudrate)
 
     def showDevices(self):
         self.ports = list(serial.tools.list_ports.comports())
@@ -31,10 +30,10 @@ class SerialConnection:
         self.connection.open()
 
     def readValue(self):
-        # while True:
+        
         self.value = self.connection.readline().strip()
         self.data = list(self.value.decode('utf-8').split(','))
-        # print(self.data)
+        
         return self.data
 
     def __getitem__(self, key):
