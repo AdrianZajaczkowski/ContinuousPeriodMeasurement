@@ -1,4 +1,5 @@
 from Liblarys import *
+from SerialConnection import *
 
 
 class ConfigFiles:
@@ -19,14 +20,10 @@ class ConfigFiles:
 
     def defaultModule(self):
         self.old = ConfigFiles.showData(self)
-
-        self._module = ["Arduino Mega 2560",
-                        "Arduino Mega 2561",
-                        "Arduino Leonardo",
-                        "Arduino Due",
-                        "Arduino Uno"
-                        ]
-
+        serialConnection = SerialConnection()
+        self._module = serialConnection.showDevices()
+        print(self.old)
         self.old["devices"] = self._module
+        print(self.old)
         with open('config.json', 'w') as devi:
             json.dump(self.old, devi, sort_keys=True, indent=4)
