@@ -1,10 +1,6 @@
 {
     "devices": [
-        "Arduino Mega 2560",
-        "Arduino Mega 2561",
-        "Arduino Leonardo",
-        "Arduino Due",
-        "Arduino Uno"
+        "Arduino Mega 2560 (COM6)"
     ],
     "text": {
         "Autor": [
