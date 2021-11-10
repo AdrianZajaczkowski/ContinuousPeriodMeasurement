@@ -2,6 +2,7 @@ from Liblarys import *
 from ConfigFiles import *
 from ComboList import *
 from Monit import *
+from PlottingAxes import *
 
 
 class WelcomeWindow(QWidget):
@@ -22,11 +23,10 @@ class WelcomeWindow(QWidget):
         self.pkg = ConfigFiles.showData(self)
         self.module = self.pkg[self._name]
 
-        self.combo = ComboList(self, module=self.module)
         self.descr = self._configText(text=self.pkg["text"]['Start'])
         self.author = self._configText(text=self.pkg["text"]['Autor'])
+        self.combo = ComboList(self, module=self.module)
 
-        #self.author.setFixedSize(600, 60)
         self.addButton = QPushButton('Dodaj nową platformę', self)
         self.resetButton = QPushButton('Reset do domyślnych platform', self)
         self.goButton = QPushButton('Zacznij pomiary', self)
@@ -60,8 +60,10 @@ class WelcomeWindow(QWidget):
         self.combo.update(self._new[self._name])
 
     def jump(self):
-        self.platform = self.combo.device
-        print(self.platform)
+        self.hide()
+        plotWindow = Plot_Window(
+            device=self.combo.device, baudrate='115200')
+        plotWindow.fig.show()
 
     def _configText(self, text):
         self.centralText = QLabel(
