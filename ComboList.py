@@ -4,13 +4,13 @@ from Liblarys import *
 class ComboList(QComboBox):
 
     def __init__(self, parent, **kwargs):
-        self.module = kwargs.pop('module')
-        self.device = ''
+        self.option = kwargs.pop('option')
+
         super(ComboList, self).__init__(parent)
         self.setupCombo()
 
     def setupCombo(self):
-        self.addItems(self.module)
+        self.addItems(self.option)
         self.activated[str].connect(self.setData)
         self.setEditable(False)
         self.adjustSize()
@@ -24,4 +24,5 @@ class ComboList(QComboBox):
             print("Invalid parameter")
 
     def setData(self, text):  # przesył do innej klasy
-        self.device = text
+        self.option = text
+        print(self.option)

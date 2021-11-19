@@ -8,7 +8,7 @@ class SerialConnection:
         self.data = []
         self.devicesList = []
         self.COM = ''
-        self.baudrate = ''
+        self.baudrate = 0
         self.connection = ''
         self.ports = []
 
@@ -19,22 +19,36 @@ class SerialConnection:
         return self.devicesList
 
     def connect(self, device, baudrate):
-        self.baudrate = baudrate
+        self.baudrate = int(baudrate)
         for port in self.ports:
             if device in port.description:
                 self.COM = port[0]
         self.connection = sr.Serial()
         self.connection.port = f'{self.COM}'
         self.connection.baudrate = self.baudrate
-        self.connection.timeout = 10
+        self.connection.timeout = 1
         self.connection.open()
 
     def readValue(self):
-        
-        self.value = self.connection.readline().strip()
-        self.data = list(self.value.decode('utf-8').split(','))
-        
+
+        self.value = self.connection.readline()
+        self.data = int(self.value)
+
         return self.data
 
     def __getitem__(self, key):
         return self.data[key]
+
+    def endConnection(self):
+        self.connection.flush()
+        self.connection.close()
+
+
+'''ser = SerialConnection()
+ser.showDevices()
+ser.connect("Arduino", 500000)
+
+while True:
+    val = ser.readValue()
+    print(val)
+'''

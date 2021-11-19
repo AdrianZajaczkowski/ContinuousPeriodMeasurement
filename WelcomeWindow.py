@@ -7,7 +7,8 @@ from PlottingAxes import *
 
 class WelcomeWindow(QWidget):
     def __init__(self, parent=None):
-        self._name = "devices"
+        self._devices = "devices"
+        self._baudrate = "baudrate"
         self.platform = ''
         super(WelcomeWindow, self).__init__(parent)
         self.setWindowTitle("Python 3.9.7")
@@ -21,11 +22,13 @@ class WelcomeWindow(QWidget):
         self.move(frame.topLeft())
 
         self.pkg = ConfigFiles.showData(self)
-        self.module = self.pkg[self._name]
+        self.dev = self.pkg[self._devices]
+        self.baud = self.pkg[self._baudrate]
 
         self.descr = self._configText(text=self.pkg["text"]['Start'])
         self.author = self._configText(text=self.pkg["text"]['Autor'])
-        self.combo = ComboList(self, module=self.module)
+        self.comboDevices = ComboList(self, option=self.dev)
+        self.comboBaudrate = ComboList(self, option=self.baud)
 
         self.addButton = QPushButton('Dodaj nową platformę', self)
         self.resetButton = QPushButton('Reset do domyślnych platform', self)
@@ -38,8 +41,9 @@ class WelcomeWindow(QWidget):
         self.label.addWidget(self.descr, 0, 0, 2, 3)
         self.label.addWidget(self.author, 2, 1)
         self.label.addWidget(self.addButton, 3, 0)
-        self.label.addWidget(self.combo, 3, 1,)
+        self.label.addWidget(self.comboDevices, 3, 1,)
         self.label.addWidget(self.resetButton, 4, 0)
+        self.label.addWidget(self.comboBaudrate, 4, 1,)
         self.label.addWidget(self.goButton, 3, 2)
 
         self.setLayout(self.label)
@@ -48,22 +52,22 @@ class WelcomeWindow(QWidget):
         name = Monit(self)
         if name.exec():
             gadget = name.inputmsg.text()
-            ConfigFiles.change(self, position=self._name, param=gadget)
-            self.combo.update(gadget)
+            ConfigFiles.change(self, position=self._devices, param=gadget)
+            self.comboDevices.update(gadget)
         else:
             pass
 
     def resetModule(self):
         ConfigFiles.defaultModule(self)
         self._new = ConfigFiles.showData(self)
-        self.combo.clear()
-        self.combo.update(self._new[self._name])
+        self.comboDevices.clear()
+        self.comboDevices.update(self._new[self._devices])
 
     def jump(self):
         self.hide()
-        plotWindow = Plot_Window(
-            device=self.combo.device, baudrate='115200')
-        plotWindow.fig.show()
+        plotWindow = Plot_Window(self,
+                                 device=self.comboDevices.option, baudrate=self.comboBaudrate.option)
+        plotWindow.show()
 
     def _configText(self, text):
         self.centralText = QLabel(
