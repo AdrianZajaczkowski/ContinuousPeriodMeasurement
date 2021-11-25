@@ -26,27 +26,43 @@ class WelcomeWindow(QWidget):
         self.baud = self.pkg[self._baudrate]
 
         self.descr = self._configText(text=self.pkg["text"]['Start'])
-        self.author = self._configText(text=self.pkg["text"]['Autor'])
+        self.author = self._configText(text=self.pkg["text"]['Autor'],)
         self.comboDevices = ComboList(self, option=self.dev)
         self.comboBaudrate = ComboList(self, option=self.baud)
 
         self.addButton = QPushButton('Dodaj nową platformę', self)
         self.resetButton = QPushButton('Reset do domyślnych platform', self)
         self.goButton = QPushButton('Zacznij pomiary', self)
+        self.textBaudrate = QLabel(
+            "Baudrate")
+        self.textDevice = QLabel("Platforma")
+        self.textBaudrate.setAlignment(
+            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.textDevice.setAlignment(
+            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        self.textBaudrate.resize(20, 5)
         self.addButton.clicked.connect(self.addModule)
         self.resetButton.clicked.connect(self.resetModule)
         self.goButton.clicked.connect(self.jump)
 
-        self.label = QGridLayout()
-        self.label.addWidget(self.descr, 0, 0, 2, 3)
-        self.label.addWidget(self.author, 2, 1)
-        self.label.addWidget(self.addButton, 3, 0)
-        self.label.addWidget(self.comboDevices, 3, 1,)
-        self.label.addWidget(self.resetButton, 4, 0)
-        self.label.addWidget(self.comboBaudrate, 4, 1,)
-        self.label.addWidget(self.goButton, 3, 2)
+        self.deviceBox = QGroupBox("Platforma")
+        self.baundrateBox = QGroupBox("Baundrate")
+        self.specify = QGridLayout()
+        self.deviceLabel = QGridLayout()
+        self.baundLabel = QGridLayout()
+        self.specify.addWidget(self.descr, 0, 0, 2, 3)
+        self.specify.addWidget(self.author, 2, 0, 1, 0)
+        self.deviceLabel.addWidget(self.addButton, 1, 0)
+        self.deviceLabel.addWidget(self.resetButton, 1, 1)
+        self.deviceLabel.addWidget(self.comboDevices, 2, 0, 1, 0)
+        self.deviceLabel.addWidget(self.goButton, 1, 2)
+        self.baundLabel .addWidget(self.comboBaudrate, 1, 0, 1, 0)
+        self.deviceBox.setLayout(self.deviceLabel)
+        self.baundrateBox.setLayout(self.baundLabel)
 
-        self.setLayout(self.label)
+        self.specify.addWidget(self.deviceBox, 3, 0, 1, 0)
+        self.specify.addWidget(self.baundrateBox, 4, 0, 1, 0)
+        self.setLayout(self.specify)
 
     def addModule(self):
         name = Monit(self)
