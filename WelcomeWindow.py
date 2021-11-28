@@ -66,6 +66,7 @@ class WelcomeWindow(QWidget):
 
     def addModule(self):
         name = Monit(self)
+        name.message('Platforma', 'Wpisz nową platformę')
         if name.exec():
             gadget = name.inputmsg.text()
             ConfigFiles.change(self, position=self._devices, param=gadget)
@@ -81,7 +82,7 @@ class WelcomeWindow(QWidget):
 
     def jump(self):
         self.hide()
-        plotWindow = Plot_Window(self,
+        plotWindow = Plot_Window(parent=self,
                                  device=self.comboDevices.option, baudrate=self.comboBaudrate.option)
         plotWindow.show()
 

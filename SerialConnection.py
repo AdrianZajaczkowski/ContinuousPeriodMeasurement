@@ -1,3 +1,4 @@
+from serial.serialutil import SerialException
 import serial.tools.list_ports
 import serial as sr
 
@@ -9,7 +10,7 @@ class SerialConnection:
         self.devicesList = []
         self.COM = ''
         self.baudrate = 0
-        self.connection = ''
+        self.connection = sr.Serial()
         self.ports = []
 
     def showDevices(self):
@@ -23,18 +24,21 @@ class SerialConnection:
         for port in self.ports:
             if device in port.description:
                 self.COM = port[0]
-        self.connection = sr.Serial()
         self.connection.port = f'{self.COM}'
         self.connection.baudrate = self.baudrate
         self.connection.timeout = 1
         self.connection.open()
 
     def readValue(self):
-
-        self.value = self.connection.readline()
-        self.data = int(self.value)
-
-        return self.data
+        self.value = self.connection.readline(16).lstrip()
+        try:
+            if self.value is not None:
+                self.data = int(float(self.value))
+                return self.value
+        except ValueError:
+            self.endConnection()
+        else:
+            pass
 
     def __getitem__(self, key):
         return self.data[key]
@@ -42,13 +46,3 @@ class SerialConnection:
     def endConnection(self):
         self.connection.flush()
         self.connection.close()
-
-
-'''ser = SerialConnection()
-ser.showDevices()
-ser.connect("Arduino", 500000)
-
-while True:
-    val = ser.readValue()
-    print(val)
-'''
