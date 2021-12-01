@@ -10,12 +10,17 @@ class ComboList(QComboBox):
         self.setupCombo()
 
     def setupCombo(self):
+        self.addItem('-Wybierz opcje-')
         self.addItems(self.option)
         self.activated[str].connect(self.setData)
         self.setEditable(False)
         self.adjustSize()
 
     def update(self, param):
+        if self.findText("-Wybierz opcje-"):  # jeśli był taki element i został usunięty
+            self.addItem("-Wybierz opcje-")  # dodaj ponownie ten element
+        else:
+            pass
         if isinstance(param, str):
             self.addItem(param)
         elif isinstance(param, list):

@@ -22,6 +22,9 @@
     "devices": [
         "Arduino Mega 2560 (COM6)"
     ],
+    "tenderness": [
+        "1"
+    ],
     "text": {
         "Autor": [
             "Wykona\u0142: Adrian Zaj\u0105czkowski",

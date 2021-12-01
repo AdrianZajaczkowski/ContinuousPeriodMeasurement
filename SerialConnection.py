@@ -1,6 +1,7 @@
 from serial.serialutil import SerialException
 import serial.tools.list_ports
 import serial as sr
+from Errors import Errors
 
 
 class SerialConnection:
@@ -12,6 +13,7 @@ class SerialConnection:
         self.baudrate = 0
         self.connection = sr.Serial()
         self.ports = []
+        self.ierrors = Errors()
 
     def showDevices(self):
         self.ports = list(serial.tools.list_ports.comports())
@@ -34,11 +36,27 @@ class SerialConnection:
         try:
             if self.value is not None:
                 self.data = int(float(self.value))
-                return self.value
+                return self.data
+            else:
+                raise ValueError
+        except SerialException:
+            msg = 'Błąd portu USB. Zmień port i zacznij pomiary ponownie'
+            self.ierrors.message('Błąd USB', msg)
+            if self.ierrors.exec():
+                self.endConnection()
+                self.ierrors.close()
+            else:
+                pass
         except ValueError:
-            self.endConnection()
-        else:
             pass
+
+    def reconnect(self):
+        if self.connection.isOpen():
+            self.connection.close()
+            self.connection.port = f'{self.COM}'
+            self.connection.baudrate = self.baudrate
+            self.connection.timeout = 1
+            self.connection.open()
 
     def __getitem__(self, key):
         return self.data[key]

@@ -14,12 +14,15 @@ class Plot_Window(QMainWindow):
         self.nx1 = 0
         self.currentDay = datetime.now()
         self.timer = QtCore.QTimer()
-        self.curentMeansure = str(self.currentDay.strftime("%d_%m_%Y %H_%M"))
+        self.curentMeansure = str(
+            self.currentDay.strftime("%Y_%m_%d %H_%M_%S"))
         self.title_file, self.path = '', ''
         super(Plot_Window, self).__init__(parent, **kwargs)
 
         self.ierrors = Errors(self)
-        self.createCsv()
+        self._config = {"Tx": ["platforma:", "Baudrate:", "Czułość przetwornika"],
+                        "fx": [self.device, self.baudrate, 1]}
+        self.createCsv(self._config)
         self.uiSet()
 
     def startPlotting(self):
@@ -82,7 +85,8 @@ class Plot_Window(QMainWindow):
     def update(self):
         try:
             nx = self.serial.readValue()
-            # self.updateCsv(nx)
+            tmp = list((nx, nx, nx))
+            self.updateCsv(tmp)
             # fx = 1/nx
             self.xdata.append(nx)
             # self.ydata.append(fx)
@@ -91,9 +95,6 @@ class Plot_Window(QMainWindow):
             self.curve.setData(x)
             self.ptr = +1
         except Exception as ex:
-            # self.enablePlot = False
-            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
-            message = template.format(type(ex).__name__, ex.args)
             msg = "\n Sprawdz wybraną płytkę lub wartość baundrate"
             self.ierrors.message('Błąd', msg)
             if self.ierrors.exec():
@@ -104,26 +105,23 @@ class Plot_Window(QMainWindow):
             else:
                 pass
 
-    def createCsv(self):
+    def createCsv(self, config):
         self.title_file = f"pomiar z {self.curentMeansure}.csv"
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
         if not Path(self.path+self.title_file).is_file():
-            # cwd = os.getcwd()
-            # print(cwd)
-            df = pd.DataFrame({'Lp': [0],
-                               'Tx': [0],
-                              'Fx': [0]})
-            names_header = ['Lp', 'Tx', 'Fx']
-            df.to_csv(Path(self.path+self.title_file),
-                      index=False, header=names_header)
+            sf = pd.DataFrame(config)
+            df = pd.DataFrame({'Tx': ['Tx'],
+                               'fx': ['fx'],
+                               'xi': ['xi'], })
+            frame = pd.concat([sf, df])
+            frame.to_csv(Path(self.path+self.title_file),
+                         index=False, header=None)
         else:
             print("xd")
 
     def updateCsv(self, nx):
-        lp = 1/nx
-        tx = nx
-        fx = 2/nx
-        row = [lp, tx, fx]
-        with open(f'{self.path+self.title_file}', 'a') as file:
-            writer = csv.writer(file)
+        row = nx
+        with open(f'{self.path+self.title_file}', 'a+', newline='') as file:
+            writer = csv.writer(file, quoting=csv.QUOTE_NONE)
             writer.writerow(row)
+            file.close()
