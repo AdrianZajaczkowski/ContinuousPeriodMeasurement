@@ -2,6 +2,7 @@ from serial.serialutil import SerialException
 import serial.tools.list_ports
 import serial as sr
 from Errors import Errors
+from Liblarys import *
 
 
 class SerialConnection:
@@ -32,10 +33,10 @@ class SerialConnection:
         self.connection.open()
 
     def readValue(self):
-        self.value = self.connection.readline(16).lstrip()
+        self.value = self.connection.readline().lstrip()
         try:
             if self.value is not None:
-                self.data = int(float(self.value))
+                self.data = float(self.value)
                 return self.data
             else:
                 raise ValueError
@@ -64,3 +65,14 @@ class SerialConnection:
     def endConnection(self):
         self.connection.flush()
         self.connection.close()
+
+
+'''
+app = QApplication(sys.argv)
+win = SerialConnection()
+win.showDevices()
+win.connect("Arduino", "115200")
+while True:
+    print(win.readValue())
+sys.exit(app.exec_())
+'''

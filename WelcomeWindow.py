@@ -118,7 +118,7 @@ class WelcomeWindow(QWidget):
     def jump(self):
         self.hide()
         plotWindow = Plot_Window(parent=self,
-                                 device=self.comboDevices.option, baudrate=self.comboBaudrate.option)
+                                 device=self.comboDevices.option, baudrate=self.comboBaudrate.option, tenderness=self.comboTenderness.option)
         plotWindow.show()
 
     def _configText(self, text):

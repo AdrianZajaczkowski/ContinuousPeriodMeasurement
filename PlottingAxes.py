@@ -2,21 +2,24 @@ from SerialConnection import *
 from Liblarys import *
 from ComboList import *
 from Errors import Errors
-import os
 
 
 class Plot_Window(QMainWindow):
     def __init__(self, parent, **kwargs):
         self.device = kwargs.pop('device')
         self.baudrate = kwargs.pop('baudrate')
+        self.tenderness = kwargs.pop('tenderness')
+        print(self.tenderness)
         self.ptr = 0
         self.nx = 0
         self.nx1 = 0
+        self.title_file, self.path = '', ''
         self.currentDay = datetime.now()
         self.timer = QtCore.QTimer()
+
         self.curentMeansure = str(
             self.currentDay.strftime("%Y_%m_%d %H_%M_%S"))
-        self.title_file, self.path = '', ''
+
         super(Plot_Window, self).__init__(parent, **kwargs)
 
         self.ierrors = Errors(self)
@@ -62,7 +65,7 @@ class Plot_Window(QMainWindow):
         self.setCentralWidget(self.central_widget)
         self.widget = QWidget()
         self.grid = QGridLayout()
-        self.chart = pg.PlotWidget()
+        self.chart = pg.GraphicsLayoutWidget()
         self.widget.setLayout(self.grid)
         self.grid.addWidget(self.startPlot, 0, 0)
         self.grid.addWidget(self.backToMenu, 1, 0)
@@ -78,21 +81,21 @@ class Plot_Window(QMainWindow):
 
     def plotter(self):
         self.xdata, self.ydata = [0], [0]
-        self.curve = self.chart.plot(pen='g', symbol='o')
+        self.plot = self.chart.addPlot(title="ciągły pomiar okresu")
+        self.curve = self.plot.plot(pen='g', symbol='o')
         self.timer.timeout.connect(self.update)
         self.timer.start(0)
 
     def update(self):
         try:
-            nx = self.serial.readValue()
-            tmp = list((nx, nx, nx))
+            tx = self.serial.readValue()
+            fx = 1/tx
+            xi = fx/self.tenderness
+            tmp = list((tx, fx, xi))
             self.updateCsv(tmp)
-            # fx = 1/nx
-            self.xdata.append(nx)
-            # self.ydata.append(fx)
-            x = np.array(self.xdata, dtype='i')
-            y = np.array(self.ydata, dtype='f')
-            self.curve.setData(x)
+            self.x = np.append(self.x, tx)
+            self.y = np.append(self.y, fx)
+            self.curve.setData(self.x,self.y)
             self.ptr = +1
         except Exception as ex:
             msg = "\n Sprawdz wybraną płytkę lub wartość baundrate"
