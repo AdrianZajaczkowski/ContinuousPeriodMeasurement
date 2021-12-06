@@ -119,7 +119,7 @@ class WelcomeWindow(QWidget):
         self.hide()
         plotWindow = Plot_Window(parent=self,
                                  device=self.comboDevices.option, baudrate=self.comboBaudrate.option, tenderness=self.comboTenderness.option)
-        plotWindow.show()
+        plotWindow.showPlots()
 
     def _configText(self, text):
         self.centralText = QLabel(
