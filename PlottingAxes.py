@@ -3,7 +3,6 @@ from SerialConnection import *
 from Liblarys import *
 from ComboList import *
 from Errors import Errors
-import time
 
 
 class Plot_Window(QMainWindow):
@@ -13,12 +12,14 @@ class Plot_Window(QMainWindow):
         self.tenderness = kwargs.pop('tenderness')
         self.ptr, self.iter = 0, 0
         self.plots = [None, None, None]
+        self.test = []
         self.plot = None
         self.full = False
         self.errorFlag = False
         self.title_file, self.path, self.openedfile,  self.openedPath = '', '', '', ''
         self.currentDay = datetime.now()
         self.timer = QtCore.QTimer()
+        self.serial = SerialConnection()
         self.curentMeansure = str(
             self.currentDay.strftime("%Y_%m_%d %H_%M_%S"))
         super(Plot_Window, self).__init__(parent, **kwargs)
@@ -85,7 +86,6 @@ class Plot_Window(QMainWindow):
         self.plotter()
 
     def _connections(self):
-        self.serial = SerialConnection()
         try:
             self.serial.showDevices()
             self.serial.connect(self.device, self.baudrate)
@@ -108,22 +108,28 @@ class Plot_Window(QMainWindow):
         self.serialLine = self.plot.plot(pen='g', symbol='o')
         self.plot.showGrid(x=True, y=True)
         self.timer.timeout.connect(self.updateSerial)
-        self.timer.start(0)
+        self.timer.start(0.00) # albo wywoływanie wykresu
 
-    def updateSerial(self):
-
+    def testss(self):
         tx = self.serial.readValue()
-        fx = 1/tx
-        xi = fx/self.tenderness
-        tmp = list((tx, fx, xi))
-        self.updateCsv(tmp)
-        self.txdata.append(tx)
-        self.fxdata.append(fx)
-        self.xidata.append(xi)
-        x = np.array(self.xidata, dtype='f')
-        # y = np.array(self.fxdata, dtype='f')
-        self.serialLine.setData(x)
-        self.ptr = +1
+        if tx is not None:
+            print(tx)
+
+    def updateSerial(self):  # popraw plot, coś chrzani wykres
+        tx = self.serial.readValue()
+        if tx:
+            fx = 1/tx
+            print(tx)
+            xi = fx/self.tenderness
+            tmp = list((tx, fx, xi))
+            self.updateCsv(tmp)
+            self.txdata.append(tx)
+            self.fxdata.append(fx)
+            self.xidata.append(xi)
+            x = np.array(self.txdata, dtype='f')
+            #y = np.array(self.fxdata, dtype='f')
+            self.serialLine.setData(x)
+            self.ptr = +1
 
     def createCsv(self, config):
         self.title_file = f"pomiar z {self.curentMeansure}.csv"
@@ -189,10 +195,11 @@ class Plot_Window(QMainWindow):
             self.secondPlot(data)
 
 
-'''
 app = QApplication(sys.argv)
 
 plot = Plot_Window(None, device="Arduino", baudrate="115200", tenderness="1")
-plot.show()
+plot._connections()
+# plot.show()
+while True:
+    plot.testss()
 sys.exit(app.exec_())
-'''

@@ -3,7 +3,6 @@ from ConfigFiles import *
 from ComboList import *
 from Monit import *
 from PlottingAxes import *
-from functools import partial
 
 
 class WelcomeWindow(QWidget):
@@ -12,17 +11,22 @@ class WelcomeWindow(QWidget):
         self._baudrate = "baudrate"
         self._tenderness = "tenderness"
         super(WelcomeWindow, self).__init__(parent)
+        self.files = ConfigFiles()
         self.setWindowTitle("Python 3.9.7")
         self._configLayout()
 
     def _configLayout(self):
-        self.setFixedSize(600, 400)
+        self.setFixedSize(900, 600)
         frame = self.frameGeometry()
         position = QDesktopWidget().availableGeometry().center()
         frame.moveCenter(position)
         self.move(frame.topLeft())
+        self.logoLabel = QLabel(self)
+        self.logo = QPixmap('..\MeansurePerioid\sheets\pollubLogo.png')
 
-        self.pkg = ConfigFiles.showData(self)
+        self.logoLabel.setPixmap(self.logo)
+
+        self.pkg = self.files.showData()
         self.dev = self.pkg[self._devices]
         self.baud = self.pkg[self._baudrate]
         self.tenderness = self.pkg[self._tenderness]
@@ -47,6 +51,8 @@ class WelcomeWindow(QWidget):
         self.textDevice.setAlignment(
             QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
         self.textBaudrate.resize(20, 5)
+        self.logoLabel.setAlignment(
+            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
 
         # funkcje przycisków po kliknięciu
         addDevice = partial(self.addModule, self.comboDevices,
@@ -70,7 +76,8 @@ class WelcomeWindow(QWidget):
         self.baundLabel = QGridLayout()
         self.tendernessLabel = QGridLayout()
 
-        self.specify.addWidget(self.descr, 0, 0, 2, 3)
+        self.specify.addWidget(self.logoLabel, 0, 0, 1, 0)
+        self.specify.addWidget(self.descr, 1, 0, 2, 3)
         self.specify.addWidget(self.author, 2, 0, 1, 0)
 
         self.deviceLabel.addWidget(self.addDeviceButton, 1, 0)
@@ -95,23 +102,22 @@ class WelcomeWindow(QWidget):
     def addModule(self, combo, element, title, monit):
         name = Monit(self)
         name.message(f'{title}', f'{monit}')
-        print(element)
         if name.exec():
             gadget = name.inputmsg.text()
-            ConfigFiles.change(self, position=element, param=gadget)
+            self.files.change(position=element, param=gadget)
             combo.update(gadget)
         else:
             pass
 
     def resetDevices(self, param):
-        ConfigFiles.defaultDevices(self, param)
-        self._new = ConfigFiles.showData(self)
+        self.files.defaultDevices(param)
+        self._new = self.files.showData()
         self.comboDevices.clear()
         self.comboDevices.update(self._new[param])
 
     def resetTenderss(self, param):
-        ConfigFiles.defaultTenderss(self, param)
-        self._new = ConfigFiles.showData(self)
+        self.files.defaultTenderss(param)
+        self._new = self.files.showData()
         self.comboTenderness.clear()
         self.comboTenderness.update(self._new[param])
 
