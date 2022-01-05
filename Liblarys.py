@@ -2,8 +2,8 @@
 # biblioteki do aplikacji okienkowej
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QDir
-from PyQt5.QtWidgets import QMainWindow, QApplication, QDesktopWidget, QComboBox, QGroupBox, QGridLayout, QWidget, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QDialog, QFileDialog
-from PyQt5.QtGui import QFont, QPixmap
+from PyQt5.QtWidgets import QMainWindow, QAction,  QApplication, QDesktopWidget, QComboBox, QGroupBox, QGridLayout, QWidget, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QDialog, QMessageBox, QFileDialog
+from PyQt5.QtGui import QFont, QPixmap, QKeySequence
 
 # biblioteka do zwijania funkcji o kilku parametrach do przycisku
 from functools import partial

@@ -39,7 +39,7 @@ class WelcomeWindow(QWidget):
         self.addDeviceButton = QPushButton('Dodaj nową platformę', self)
         self.addTendernessButton = QPushButton(
             'Dodaj czułość przekaźnika', self)
-        self.resetDeviceButton = QPushButton('Odświerz platfory', self)
+        self.resetDeviceButton = QPushButton('Odśwież platfory', self)
         self.resetTendernessButton = QPushButton(
             'Reset do wartości pierowtnej', self)
         self.goButton = QPushButton('Zacznij pomiary', self)
@@ -69,7 +69,7 @@ class WelcomeWindow(QWidget):
         self.goButton.clicked.connect(self.jump)
 
         self.deviceBox = QGroupBox("Platforma")
-        self.baundrateBox = QGroupBox("Baundrate")
+        self.baundrateBox = QGroupBox("Baudrate")
         self.tendernessBox = QGroupBox("Czułość przetwornika")
         self.specify = QGridLayout()
         self.deviceLabel = QGridLayout()
