@@ -11,7 +11,9 @@ from functools import partial
 # biblioteki do przetwarzania danych i wizualizacji
 import json
 import sys
+import os
 from datetime import date, datetime
+from time import sleep
 import pandas as pd
 import numpy as np
 import pyqtgraph as pg
@@ -23,3 +25,6 @@ import csv
 from serial.serialutil import SerialException
 import serial.tools.list_ports
 import serial as sr
+import struct
+from subprocess import call
+from ctypes.wintypes import BYTE

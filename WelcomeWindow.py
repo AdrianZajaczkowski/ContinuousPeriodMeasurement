@@ -4,19 +4,25 @@ from ComboList import *
 from Monit import *
 from PlottingAxes import *
 
+# dodaj opcje zapisu ustawnień
+
 
 class WelcomeWindow(QWidget):
     def __init__(self, parent=None):
         self._devices = "devices"
         self._baudrate = "baudrate"
         self._tenderness = "tenderness"
+        self.default = False
         super(WelcomeWindow, self).__init__(parent)
         self.files = ConfigFiles()
         self.setWindowTitle("Python 3.9.7")
         self._configLayout()
 
     def _configLayout(self):
-        self.setFixedSize(900, 600)
+        font = QFont()
+        font.setPixelSize(17)
+        self.setFont(font)
+        self.setFixedSize(1024, 700)
         frame = self.frameGeometry()
         position = QDesktopWidget().availableGeometry().center()
         frame.moveCenter(position)
@@ -31,36 +37,33 @@ class WelcomeWindow(QWidget):
         self.baud = self.pkg[self._baudrate]
         self.tenderness = self.pkg[self._tenderness]
         self.descr = self._configText(text=self.pkg["text"]['Start'])
-        self.author = self._configText(text=self.pkg["text"]['Autor'],)
-        self.comboDevices = ComboList(self, option=self.dev)
-        self.comboBaudrate = ComboList(self, option=self.baud)
-        self.comboTenderness = ComboList(self, option=self.tenderness)
+        self.author = self._configText(text=self.pkg["text"]['Autor'])
+
+        self.comboDevices = ComboList(
+            self, option=self.dev["standard"], default=self.dev["default"])
+        self.comboBaudrate = ComboList(
+            self, option=self.baud["standard"], default=self.baud["default"])
+        self.comboTenderness = ComboList(
+            self, option=self.tenderness["standard"], default=self.tenderness["default"])
 
         self.addDeviceButton = QPushButton('Dodaj nową platformę', self)
         self.addTendernessButton = QPushButton(
             'Dodaj czułość przekaźnika', self)
-        self.resetDeviceButton = QPushButton('Odśwież platfory', self)
+        self.resetDeviceButton = QPushButton('Odśwież platformy', self)
         self.resetTendernessButton = QPushButton(
-            'Reset do wartości pierowtnej', self)
+            'Reset do wartości pierwotnej', self)
         self.goButton = QPushButton('Zacznij pomiary', self)
-        self.textBaudrate = QLabel(
-            "Baudrate")
-        self.textDevice = QLabel("Platforma")
-        self.textBaudrate.setAlignment(
-            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-        self.textDevice.setAlignment(
-            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-        self.textBaudrate.resize(20, 5)
         self.logoLabel.setAlignment(
             QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
 
         # funkcje przycisków po kliknięciu
         addDevice = partial(self.addModule, self.comboDevices,
-                            self._devices, 'Platforma', 'Wpisz nową platformę')
+                            self._devices, "standard", 'Platforma', 'Wpisz nową platformę')
         addTenderness = partial(self.addModule, self.comboTenderness,
-                                self._tenderness, 'Czułość', 'Wpisz nową czułość')
-        resetDevice = partial(self.resetDevices, self._devices)
-        resetTenderness = partial(self.resetTenderss, self._tenderness)
+                                self._tenderness, "standard", 'Czułość', 'Wpisz nową czułość')
+        resetDevice = partial(self.resetDevices, self._devices, "standard")
+        resetTenderness = partial(
+            self.resetTenderss, self._tenderness, "standard")
 
         self.addDeviceButton.clicked.connect(addDevice)
         self.resetDeviceButton.clicked.connect(resetDevice)
@@ -99,32 +102,52 @@ class WelcomeWindow(QWidget):
         self.specify.addWidget(self.tendernessBox, 5, 0, 1, 0)
         self.setLayout(self.specify)
 
-    def addModule(self, combo, element, title, monit):
+    def resizeText(self, event):
+        defaultSize = 9
+        if self.rect().width() // 40 > defaultSize:
+            f = QFont('', self.rect().width() // 40)
+        else:
+            f = QFont('', defaultSize)
+        self.setFont(f)
+
+    def addModule(self, combo, pos, element, title, monit):
         name = Monit(self)
         name.message(f'{title}', f'{monit}')
         if name.exec():
             gadget = name.inputmsg.text()
-            self.files.change(position=element, param=gadget)
-            combo.update(gadget)
+            self.files.change(part=pos, position=element, param=gadget)
+            combo.new(gadget)
         else:
             pass
 
-    def resetDevices(self, param):
-        self.files.defaultDevices(param)
+    def resetDevices(self, param, position):
+        self.files.defaultDevices(param, position)
         self._new = self.files.showData()
         self.comboDevices.clear()
-        self.comboDevices.update(self._new[param])
+        self.comboDevices.update(self._new[param][position])
 
-    def resetTenderss(self, param):
-        self.files.defaultTenderss(param)
+    def resetTenderss(self, param, position):
+        self.files.defaultTenderss(param, position)
         self._new = self.files.showData()
         self.comboTenderness.clear()
-        self.comboTenderness.update(self._new[param])
+        self.comboTenderness.update(self._new[param][position])
 
     def jump(self):
         self.hide()
-        plotWindow = Plot_Window(parent=self,
-                                 device=self.comboDevices.option, baudrate=self.comboBaudrate.option, tenderness=self.comboTenderness.option)
+        self.files.setDefaulfValue(
+            name="devices", position="default", element=self.comboDevices.default)
+        self.files.setDefaulfValue(
+            name="baudrate", position="default", element=self.comboBaudrate.default)
+        self.files.setDefaulfValue(
+            name="tenderness", position="default", element=self.comboTenderness.default)
+
+        if self.dev["default"] and self.baud["default"] and self.tenderness["default"]:
+            plotWindow = Plot_Window(parent=self,
+                                     device=self.comboDevices.default, baudrate=self.comboBaudrate.default, tenderness=self.comboTenderness.default)
+        else:
+            plotWindow = Plot_Window(parent=self,
+                                     device=self.comboDevices.option, baudrate=self.comboBaudrate.option, tenderness=self.comboTenderness.option)
+
         plotWindow.showPlots()
 
     def _configText(self, text):

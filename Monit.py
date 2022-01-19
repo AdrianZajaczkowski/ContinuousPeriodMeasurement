@@ -1,3 +1,4 @@
+# class to config propmpt monit of adding elements
 from Liblarys import *
 
 
@@ -20,11 +21,3 @@ class Monit(QDialog):
         self.layout.addWidget(self.inputmsg)
         self.layout.addWidget(self.button)
         self.setLayout(self.layout)
-
-
-'''
-app = QApplication(sys.argv)
-mon = Monit()
-mon.jump()
-app.exec_()
-'''

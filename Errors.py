@@ -1,3 +1,4 @@
+# class to setup view of errors prompt monit
 from Liblarys import *
 
 

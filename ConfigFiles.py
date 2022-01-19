@@ -1,3 +1,4 @@
+# Class to reate litsts of elements
 from Liblarys import *
 from SerialConnection import *
 
@@ -5,42 +6,54 @@ from SerialConnection import *
 class ConfigFiles:
     def __init__(self):
         super(ConfigFiles, self).__init__()
-        self.configPath = 'config.json'
+        self.configPath = 'D:\MeansurePerioid\config.json'
 
-    def change(self, position, param):
-
+    # metoda dodawania elementu do pliku configuracyjnego w zależności od listy
+    def change(self, part, position, param):
         with open(self.configPath, 'r') as fp:
             data = json.load(fp)
-        data[position].append(param)
+        data[part][position].append(param)
         with open(self.configPath, 'w') as devi:
             json.dump(data, devi, indent=4)
+
+    def setDefaulfValue(self, name, position, element):
+        with open(self.configPath, 'r') as fp:
+            data = json.load(fp)
+        data[name][position] = element
+        with open(self.configPath, 'w') as devi:
+            json.dump(data, devi, indent=4)
+    # metoda zwracajaca wszystko z pliku configuracyjnego
 
     def showData(self):
         with open(self.configPath, 'r') as fp:
             data = json.load(fp)
         return data
 
-    def defaultDevices(self, position):
+    # reset mikrokontrolerów do pozycji domyslnych
+    def defaultDevices(self, part, position):
         self.old = ConfigFiles.showData(self)
 
         serialConnection = SerialConnection()
         self._module = serialConnection.showDevices()
 
-        self.old[position] = self._module
+        self.old[part][position] = self._module
 
         with open(self.configPath, 'w') as devi:
             json.dump(self.old, devi, sort_keys=True, indent=4)
 
-    def defaultTenderss(self, position):
+     # zmiana czułości do wartości domyslnych
+    def defaultTenderss(self, part, position):
         self.old = ConfigFiles.showData(self)
         self._module = "1"
 
-        self.old[position] = list(self._module)
+        self.old[part][position] = list(self._module)
 
         with open(self.configPath, 'w') as devi:
             json.dump(self.old, devi, sort_keys=True, indent=4)
 
 
-'''ps = ConfigFiles()
-print(ps.showData())
-'''
+# app = ConfigFiles()
+
+# print(app.showData())
+# app.setDefaulfValue(name="baudrate", position="default", element="b")
+# print(app.showData())
