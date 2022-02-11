@@ -21,10 +21,11 @@ class Plot_Window(QMainWindow):
         self.test = []
         self.mainPlot = None
         self.iter = 1
-        self.t = 0
+        self.t, self.n = 0, 0
         self.WindowFont = None
         self.GridFont = None
         self.full = False
+        self.first = True
         self.errorFlag, self.quitflag = False, False
         self.changeSecond, self.changeMain = True, True
         self.title_file, self.path, self.openedfile,  self.openedPath = '', '', '', ''
@@ -71,7 +72,9 @@ class Plot_Window(QMainWindow):
     def _connections(self):
         try:
             self.serial.showDevices()
+            print("a")
             self.serial.connect(self.device, self.baudrate)
+            print("b")
         except Exception:
             self.close()
             self.parent().show()
@@ -155,15 +158,15 @@ class Plot_Window(QMainWindow):
                                                title="<b><p style=\"font-size:17px\">Ciągły pomiar okresu sygnału</p></b>", **labels)
         else:
             pass
-        self.serialLine = self.mainPlot.plot(pen=pg.mkPen('r', width=1))
+        self.serialLine = self.mainPlot.plot(pen=pg.mkPen('r', width=2))
         self.mainPlot.showGrid(x=True, y=True, alpha=1)
         self.mainPlot.setLabel('left', 'Frequency',
                                units='Hz', **labels)
         self.mainPlot.setLabel(
             'bottom', 'Time', units="s", **labels)
-        self.mainPlot.getAxis("bottom").setTickFont(self.WindowFont)
+        self.mainPlot.getAxis("bottom").setTickFont(self.GridFont)
         self.mainPlot.getAxis("bottom").setStyle(tickTextOffset=20)
-        self.mainPlot.getAxis("left").setTickFont(self.WindowFont)
+        self.mainPlot.getAxis("left").setTickFont(self.GridFont)
         self.mainPlot.getAxis("left").setStyle(tickTextOffset=20)
         self.updateData()
 
@@ -171,7 +174,7 @@ class Plot_Window(QMainWindow):
 
         self.startPlot.setEnabled(False)
         self._connections()
-        self.serial.connection.write(b's')
+        # self.serial.connection.write(b's')
         self.plotter()
 
     def clearPlot(self):     # metoda do czyszczenia dodawanych wykresów
@@ -234,14 +237,30 @@ class Plot_Window(QMainWindow):
         self.timer.start(0)
 
     def plotSerial(self):  # Metoda do wizualizacji danych
-
+        new = 1
         Nx = self.serial.readValue()
+
         if Nx is None:
             # print("dane przekłamane")
+
+            return
+        elif self.first == True:
+            self.first = False
             return
         else:
+            # self.Nnext = Ni
+            # if self.Nnext > self.Nprev:
+            #     Nx = self.Nnext - self.Nprev
+            #     self.Nprev = Ni
+            # else:
+            #     Nx = self.Nnext - self.Nprev + self.overflow
+            #     self.Nprev = Ni
+            # self.n = Nx
+            # if self.n != Nx:
+            #     new = abs(self.n-Nx)
+            #     self.n = Nx
+            #     print(new)
             print(Nx)
-
             if Nx:
                 Tx = Nx*(1/self.F_CPU)
                 f = 1/Tx
@@ -251,7 +270,7 @@ class Plot_Window(QMainWindow):
                 bwzg = wzg/Tx
                 self.t += Tx
                 proc_bwzg = bwzg*100
-                tmp = list(( Nx, Tx, Xxi, self.t, f,
+                tmp = list((Nx, Tx, Xxi, self.t, f,
                            Tx1, wzg, bwzg, proc_bwzg))
                 self.updateCsv(tmp)
                 self.tdata.append(self.t)
@@ -259,6 +278,10 @@ class Plot_Window(QMainWindow):
                 x = np.array(self.tdata, dtype='f')
                 y = np.array(self.fdata, dtype='f')
                 self.serialLine.setData(x, y)
+
+    def testss(self):
+        Nx = self.serial.readValue()
+        print(Nx)
 
     def createFolder(self):   # metoda do stworzenia folderu z pomiarami
         current_directory = os.getcwd()
@@ -312,15 +335,15 @@ class Plot_Window(QMainWindow):
             self.secondPlot(data)
 
 
-# app = QApplication(sys.argv)
+app = QApplication(sys.argv)
 
-# # plot = Plot_Window(None, device="Arduino Uno",
-# #                    baudrate="9600", tenderness="1")
-# plot = Plot_Window(None, device="Arduino Mega",
-#                    baudrate="115200", tenderness="1")
-# plot._connections()
-# plot.show()
+# plot = Plot_Window(None, device="Arduino Uno",
+#                    baudrate="9600", tenderness="1")
+plot = Plot_Window(None, device="Arduino Mega",
+                   baudrate="38400", tenderness="1")
+plot._connections()
+plot.show()
 
-# # while True:
-# #     plot.testss()
-# sys.exit(app.exec_())
+# while True:
+#     plot.testss()
+sys.exit(app.exec_())

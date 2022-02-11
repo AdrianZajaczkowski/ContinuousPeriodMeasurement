@@ -4,8 +4,6 @@ from ComboList import *
 from Monit import *
 from PlottingAxes import *
 
-# dodaj opcje zapisu ustawnień
-
 
 class WelcomeWindow(QWidget):
     def __init__(self, parent=None):
@@ -22,13 +20,14 @@ class WelcomeWindow(QWidget):
         font = QFont()
         font.setPixelSize(17)
         self.setFont(font)
-        self.setFixedSize(1024, 700)
+        # self.setFixedSize(900, 600)
+        self.resize(1024, 700)
         frame = self.frameGeometry()
         position = QDesktopWidget().availableGeometry().center()
         frame.moveCenter(position)
         self.move(frame.topLeft())
         self.logoLabel = QLabel(self)
-        self.logo = QPixmap('..\MeansurePerioid\sheets\pollubLogo.png')
+        self.logo = QPixmap('..\MeansurePerioid\sheets\pollubLogo.png')  
 
         self.logoLabel.setPixmap(self.logo)
 
@@ -56,7 +55,6 @@ class WelcomeWindow(QWidget):
         self.logoLabel.setAlignment(
             QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
 
-        # funkcje przycisków po kliknięciu
         addDevice = partial(self.addModule, self.comboDevices,
                             self._devices, "standard", 'Platforma', 'Wpisz nową platformę')
         addTenderness = partial(self.addModule, self.comboTenderness,
