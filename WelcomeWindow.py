@@ -6,6 +6,8 @@ from PlottingAxes import *
 
 
 class WelcomeWindow(QWidget):
+    signal = pyqtSignal(str, str)
+
     def __init__(self, parent=None):
         self._devices = "devices"
         self._baudrate = "baudrate"
@@ -13,6 +15,7 @@ class WelcomeWindow(QWidget):
         self.default = False
         super(WelcomeWindow, self).__init__(parent)
         self.files = ConfigFiles()
+        self.serial = SerialConnection()
         self.setWindowTitle("Python 3.9.7")
         self._configLayout()
 
@@ -27,7 +30,7 @@ class WelcomeWindow(QWidget):
         frame.moveCenter(position)
         self.move(frame.topLeft())
         self.logoLabel = QLabel(self)
-        self.logo = QPixmap('..\MeansurePerioid\sheets\pollubLogo.png')  
+        self.logo = QPixmap('..\MeansurePerioid\sheets\pollubLogo.png')
 
         self.logoLabel.setPixmap(self.logo)
 
@@ -140,12 +143,20 @@ class WelcomeWindow(QWidget):
             name="tenderness", position="default", element=self.comboTenderness.default)
 
         if self.dev["default"] and self.baud["default"] and self.tenderness["default"]:
-            plotWindow = Plot_Window(parent=self,
-                                     device=self.comboDevices.default, baudrate=self.comboBaudrate.default, tenderness=self.comboTenderness.default)
+            plotWindow = Plot_Window(parent=self, device=self.comboDevices.default,
+                                     baudrate=self.comboBaudrate.default,
+                                     tenderness=self.comboTenderness.default,serial=self.serial)
+            self.serial.showDevices()
+            self.signal.connect(self.serial.connect)
+            self.signal.emit(self.comboDevices.default,self.comboBaudrate.default)
         else:
-            plotWindow = Plot_Window(parent=self,
-                                     device=self.comboDevices.option, baudrate=self.comboBaudrate.option, tenderness=self.comboTenderness.option)
-
+            plotWindow = Plot_Window(parent=self, device=self.comboDevices.option,
+                                     baudrate=self.comboBaudrate.option,
+                                     tenderness=self.comboTenderness.option, serial=self.serial)
+            self.serial.showDevices()
+            self.signal.connect(self.serial.connect)
+            self.signal.emit(self.comboDevices.option,
+                             self.comboBaudrate.option)
         plotWindow.showPlots()
 
     def _configText(self, text):

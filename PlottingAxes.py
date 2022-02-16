@@ -4,6 +4,7 @@ from SerialConnection import *
 from Liblarys import *
 from ComboList import *
 from Errors import Errors
+from bufforReading import *
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -14,6 +15,7 @@ class Plot_Window(QMainWindow):
         self.device = kwargs.pop('device')
         self.baudrate = kwargs.pop('baudrate')
         self.tenderness = kwargs.pop('tenderness')
+        self.serial = kwargs.pop('serial')
         self.Nnext, self.Nprev = 0, 0
         self.overflow = 65535
         self.F_CPU = 16000000
@@ -26,19 +28,18 @@ class Plot_Window(QMainWindow):
         self.GridFont = None
         self.full = False
         self.first = True
-        self.errorFlag, self.quitflag = False, False
+        self.errorFlag = False
         self.changeSecond, self.changeMain = True, True
         self.title_file, self.path, self.openedfile,  self.openedPath = '', '', '', ''
         self.currentDay = None
         self.timer = QtCore.QTimer()
-        self.serial = SerialConnection()
         self.exit = QAction("Exit Application",
                             triggered=lambda: self.exit_app)
         self.curentMeansure = None
         super(Plot_Window, self).__init__(parent, **kwargs)
         self.ierrors = Errors(self)
-        self._config = {"Nx": ["platforma:", "Baudrate:", "Czułość przetwornika"],
-                        "Tx": [self.device, self.baudrate, self.tenderness]}
+        self._config = {"time": ["platforma:", "Baudrate:", "Czułość przetwornika"],
+                        "Nxi": [self.device, self.baudrate, self.tenderness]}
         self.setWindowTitle("Python 3.9.7")
 
         try:
@@ -69,16 +70,15 @@ class Plot_Window(QMainWindow):
                 self.close()
                 self.parent().show()
 
-    def _connections(self):
-        try:
-            self.serial.showDevices()
-            print("a")
-            self.serial.connect(self.device, self.baudrate)
-            print("b")
-        except Exception:
-            self.close()
-            self.parent().show()
-            self.serial.endConnection()
+    def calculations(self):
+        if self.test is not None:
+            print(self.test)
+        else:
+            print("brak")
+
+    def plotses(self, x):
+        self.test.append(x)
+        print(x)
 
     def closeConnection(self):
         self.timer.stop()
@@ -93,13 +93,13 @@ class Plot_Window(QMainWindow):
         reply = QMessageBox.question(
             self, 'Quit', 'Czy na pewno chcesz skonczyć pomiary?', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
 
-        if reply == QMessageBox.Yes and self.quitflag == False:
+        if reply == QMessageBox.Yes:
             event.accept()
-            self.close()
             self.closeConnection()
+            self.close()
 
             print('Window closed')
-            self.quitflag = True
+
         else:
             event.ignore()
 
@@ -173,8 +173,8 @@ class Plot_Window(QMainWindow):
     def startPlotting(self):    # metoda do inicjalizowania wykresu głównego
 
         self.startPlot.setEnabled(False)
-        self._connections()
-        # self.serial.connection.write(b's')
+        # self._connections()
+        self.serial.start()
         self.plotter()
 
     def clearPlot(self):     # metoda do czyszczenia dodawanych wykresów
@@ -190,8 +190,8 @@ class Plot_Window(QMainWindow):
             self.full = True
         if not self.full:
             self.plots = self.chart.addPlot(row=1, col=0,
-                                            title=f"<b><p style=\"color: black\">{self.openedPath}</p></b><")
-            self.secondLine = self.plots.plot(pen='g')
+                                            title=f"<b><p style=\"color: black\">Ciągły pomiar okresu sygnału</p></b><")
+            self.secondLine = self.plots.plot(pen=pg.mkPen('r', width=2))
             self.plots.showGrid(x=True, y=True, alpha=1)
             labels = {'color': 'g',
                       'font-size': f'{self.GridFont.pixelSize()}px'}
@@ -204,7 +204,7 @@ class Plot_Window(QMainWindow):
             self.plots.getAxis("left").setStyle(tickTextOffset=20)
             x = data[0]
             y = data[1]
-            self.secondLine.setData(x, y)
+            self.secondLine.setData(y)
             self.iter += 1
         else:
             self.chart.removeItem(self.plots)
@@ -234,13 +234,16 @@ class Plot_Window(QMainWindow):
 
     def updateData(self):       # metoda do ciągłego aktualizowania wykresu
         self.timer.timeout.connect(self.plotSerial)
-        self.timer.start(0)
+        self.timer.start()
+
+    def getValue(self, Nx):
+        self.Nx = Nx
 
     def plotSerial(self):  # Metoda do wizualizacji danych
         new = 1
-        Nx = self.serial.readValue()
+        Nxi = self.serial.readValue()
 
-        if Nx is None:
+        if Nxi is None:
             # print("dane przekłamane")
 
             return
@@ -259,22 +262,31 @@ class Plot_Window(QMainWindow):
             # if self.n != Nx:
             #     new = abs(self.n-Nx)
             #     self.n = Nx
-            #     print(new)
-            print(Nx)
-            if Nx:
-                Tx = Nx*(1/self.F_CPU)
-                f = 1/Tx
-                Tx1 = (Nx+1)*(1/self.F_CPU)
-                Xxi = f/self.tenderness
-                wzg = abs(Tx1-Tx)
-                bwzg = wzg/Tx
-                self.t += Tx
-                proc_bwzg = bwzg*100
-                tmp = list((Nx, Tx, Xxi, self.t, f,
-                           Tx1, wzg, bwzg, proc_bwzg))
+            #     print(new) # tylko wykreślaj dane
+            # reszte wcześniej zapisuj do pliku
+            # print(Nxi)
+            if Nxi:
+                now = datetime.now()
+
+                time = now.strftime("%H:%M:%S")
+                Txi = Nxi*(1/self.F_CPU)
+                fxi = 1/Txi
+                Tx1 = (Nxi+1)*(1/self.F_CPU)
+
+                print(f"tx:{1/Txi}")
+                print(f"tx1:{1/Tx1}")
+                print(f"tx1/tx {(Tx1-Txi)/Txi}")
+
+                Xxi = fxi/self.tenderness
+                bwzg = round((Tx1-Txi), 8)
+                wzg = round((bwzg/Txi), 8)
+                self.t += Txi
+                proc_wzg = wzg*100
+                tmp = list((time, Nxi, Txi, Xxi, self.t, fxi,
+                           Tx1, bwzg, wzg, proc_wzg))
                 self.updateCsv(tmp)
                 self.tdata.append(self.t)
-                self.fdata.append(Xxi)
+                self.fdata.append(Xxi)  # zakomentuj i testuj czas
                 x = np.array(self.tdata, dtype='f')
                 y = np.array(self.fdata, dtype='f')
                 self.serialLine.setData(x, y)
@@ -294,7 +306,7 @@ class Plot_Window(QMainWindow):
         self.title_file = f"pomiar z {self.curentMeansure}.csv"
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
         if not Path(self.path+self.title_file).is_file():
-            headers = ["Nx", "Tx", "Xxi", "t", "f",
+            headers = ["time", "Nxi", "Txi", "Xxi", "t", "fxi",
                        " Błąd kwantowania (Nx+1)", "Błąd bezwzględny", "Błąd względny δ", "Błąd względny δ%"]
             sf = pd.DataFrame(config, columns=headers)
             sf.to_csv(Path(self.path+self.title_file), encoding='utf-8-sig',
@@ -335,15 +347,19 @@ class Plot_Window(QMainWindow):
             self.secondPlot(data)
 
 
-app = QApplication(sys.argv)
+# app = QApplication(sys.argv)
 
-# plot = Plot_Window(None, device="Arduino Uno",
-#                    baudrate="9600", tenderness="1")
-plot = Plot_Window(None, device="Arduino Mega",
-                   baudrate="38400", tenderness="1")
-plot._connections()
-plot.show()
+# # plot = Plot_Window(None, device="Arduino Uno",
+# #                    baudrate="9600", tenderness="1")
+# plot = Plot_Window(None, device="Arduino Mega",
+#                    baudrate="38400", tenderness="1", serial=None)
+# buff = Read(obj=plot)
+# # plot._connections()
+# buff.test1()
+# buff.test2()
+# buff.loops()
+# plot.show()
 
-# while True:
-#     plot.testss()
-sys.exit(app.exec_())
+# # while True:
+# #     plot.testss()
+# sys.exit(app.exec_())

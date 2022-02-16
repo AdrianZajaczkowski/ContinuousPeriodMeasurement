@@ -2,7 +2,7 @@ from Errors import Errors
 from Liblarys import *
 
 
-class SerialConnection:
+class SerialConnection(QtWidgets.QWidget):
     def __init__(self):
         super(SerialConnection, self).__init__()
         self.next = 0
@@ -11,7 +11,9 @@ class SerialConnection:
         self.baudrate = 0
         self.connection = None
         self.ports = []
+        self.storage = []
         self.ierrors = Errors()
+        self.timer = QtCore.QTimer()
         self.tmp, self.value = 0, 1
 
     def showDevices(self):
@@ -28,6 +30,8 @@ class SerialConnection:
                 self.endConnection()
 
     def connect(self, device, baudrate):
+        print(f'aaaaa{device}')
+        print(f'bbbb{baudrate}')
         try:
             self.connection = sr.Serial()
             self.baudrate = int(baudrate)
@@ -37,14 +41,15 @@ class SerialConnection:
                     print(self.COM)
             self.connection.port = f'{self.COM}'
             self.connection.baudrate = self.baudrate
+            # self.connection = sr.Serial(port=self.COM, baudrate=self.baudrate)
             # self.connection.bytesize = EIGHTBITS
             # self.connection.stopbits = STOPBITS_ONE
             # self.connection.parity = "N"
             # # self.connection.dsrdtr = True
-            self.connection.timeout = 1
+            # self.connection.timeout = 1
             print(self.connection.isOpen())
+            # self.connection.flush()
             self.connection.close()
-            # self.coonection.flush()
             self.connection.open()
 
         except TypeError as ty:
@@ -70,21 +75,11 @@ class SerialConnection:
             calculated_checksum ^= byte
         return calculated_checksum
 
-    # def readValue2(self):
-    #     data = ""
-    #     while True:
-    #         value = self.connection.read(1)
-    #         if value == b"\r":
-    #             break
-    #         else:
-    #             data += value.decode('utf-8')
-
-    #     return int(data)
-
     def readValue(self):
 
         try:
-            arr = [None, None, None]
+
+            # arr = [None, None, None]
 
             start = self.connection.read(2)
             startseq = struct.unpack('<H',  start)[0]
@@ -96,12 +91,10 @@ class SerialConnection:
                 endValue = struct.unpack('<H',  end)[0]
                 if endValue == 3:
 
-                    arr[0] = startseq
-                    arr[1] = NxValue
-                    arr[2] = endValue
+                    # self.storage.append(NxValue)
 
                     if NxValue >= 1300000:
-                        return
+                        pass
                     else:
                         return NxValue
 
@@ -139,10 +132,20 @@ class SerialConnection:
             self.connection.timeout = None
             self.connection.open()
 
-    def endConnection(self):
-        # self.connection.write(b'k')
+    def start(self):
+        sleep(1)
+        x = 's'
+        self.connection.write(bytes(x, 'utf-8'))
 
-        self.connection.flush()
+    def test2(self, x):
+        print(" serial conenction get data:")
+        print(x)
+
+    def endConnection(self):
+        sleep(1)
+        self.connection.write(bytes('k', 'utf-8'))
+        sleep(1)
+        self.connection.flushOutput()
         self.connection.close()
 
 
@@ -150,13 +153,11 @@ class SerialConnection:
 # win = SerialConnection()
 # win.showDevices()
 # win.connect("Arduino Mega", "38400")
-# # win.connection.write(b's')
-# secs = datetime.now()
-
+# win.start()
 
 # csvs = pd.DataFrame()
 # path_s = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
-# title = "ciagły10khz_2_10.csv"
+# title = "testowypomiar4.csv"
 # csvs.to_csv(Path(path_s+title), index=False, sep=';')
 
 
@@ -172,17 +173,37 @@ class SerialConnection:
 #         file.close()
 
 
-# while True:
+# win.start()
+# row = []
+# i = 0
 
+
+# def test():
+#     global i
 #     row = win.readValue()
 #     if row is not None:
-
-#         freq = 1/(row*(1/(6000000)))
-#         l = [row, freq]
+#         now = datetime.now()
+#         time = now.strftime("%H:%M:%S")
+#         freq = 1/(row*(1/(16000000)))
+#         l = [time, row, freq]
 #         if row:
 #             csvWrite(l)
 #         print(row)
-#     else:
+#         i += 1
+#     else:  # przeklej do klasy plot
 #         pass
 
+
+# def testsa1():
+#     row.append(win.readValue())
+
+
+# # while True:
+# #     print(win.readValue())
+# timer = QtCore.QTimer()
+# # timer1 = QtCore.QTimer()
+# timer.timeout.connect(test)
+# timer.start()
+# # timer1.timeout.connect(testsa)
+# # timer1.start(1)
 # sys.exit(app.exec_())
