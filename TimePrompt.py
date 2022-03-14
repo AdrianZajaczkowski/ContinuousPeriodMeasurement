@@ -13,6 +13,3 @@ class TimePrompt(QDialog):
         self.msg = QLabel(f'{msg}')
         self.layout.addWidget(self.msg)
         self.wid.setLayout(self.layout)
-
-        # self.setLayout(self.layout)
-        # popraw wyświetlanie widgeta i będzie git

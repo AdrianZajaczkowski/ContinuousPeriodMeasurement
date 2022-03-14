@@ -151,7 +151,6 @@ class SerialConnection(QtWidgets.QWidget):
             self.timePopUp.message(msg='Koniec Pomiaru')
             if self.timePopUp.exec():
                 pass
-                # self.close()
 
         except serial.SerialException as e:
             msg = 'Błąd portu USB. Sprawdź połączenie i zacznij pomiary ponownie'
@@ -192,76 +191,3 @@ class SerialConnection(QtWidgets.QWidget):
         self.connection.flushOutput()
         time.sleep(1)
         self.connection.close()
-
-
-# app = QApplication(sys.argv)
-# win = SerialConnection()
-# win.showDevices()
-# # win.connect("USB Serial", "9600")
-# # win.connect("Arduino Uno", "19200")
-# win.connect("USB", "1000000", '1')
-# # win.start()
-
-# # win.meansureRange('5 s', 'rraas')
-
-
-# # path_s = r'D:\\MeansurePerioid\\wyniki pomiarów\\testyUNO\\'
-# # # title = "arduinomega12.csv"
-# # title = "arduinoTEST6.csv"  # sprawdz algorytm dla 2 i Nx
-
-# # csvs.to_csv(Path(path_s+title), index=False, sep=';')
-
-
-# # def currTime():
-# #     return time.time_ns() / (10 ** 9)
-
-
-# # def csvWrite(row):
-
-# #     with open(f'{path_s+title}', 'a+', newline='') as file:
-# #         writer = csv.writer(file, delimiter=';', quoting=csv.QUOTE_NONE)
-# #         writer.writerow(row)
-# #         file.close()
-
-
-# # list = ["timestamp", "Ni", "Nx", "tx", "t", "f"]
-# # # csvWrite(list)
-# # win.start()
-
-# # i = 0
-# # t = 0
-
-
-# # def test():
-# #     global t
-# #     row = win.readValue()
-# #     print(f"odczytano{row}")
-# #     if row is not None:
-# #         now = datetime.now()
-# #         time = now.strftime("%H:%M:%S")
-# #         # tg = row[0]*(1/(16000000))
-# #         # t += tg
-# #         # freq = 1/(row[0]*(1/(16000000)))
-# #         l = [time, row]
-# #         if row:
-# #             csvWrite(l)
-
-# #     else:  # przeklej do klasy plot
-# #         pass
-
-
-# # def testsa1():
-# #     a = win.readValue()
-# #     print(a)
-
-
-# # testsa1()
-# # while True:
-# # test()
-# # timer = QtCore.QTimer()
-# # timer1 = QtCore.QTimer()
-# # timer.timeout.connect(test)
-# # timer.start()
-# # timer1.timeout.connect(testsa)
-# # timer1.start(1)
-# sys.exit(app.exec_())

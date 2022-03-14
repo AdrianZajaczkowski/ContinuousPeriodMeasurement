@@ -7,7 +7,7 @@ from ComboList import *
 from ConfigFiles import *
 from Errors import Errors
 from TimePrompt import TimePrompt
-from bufforReading import *
+
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
