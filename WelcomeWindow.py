@@ -1,4 +1,4 @@
-from Liblarys import *
+from libraries import *
 from ConfigFiles import *
 from ComboList import *
 from Monit import *
@@ -6,7 +6,7 @@ from PlottingAxes import *
 
 
 class WelcomeWindow(QWidget):
-    signal = pyqtSignal(str, str)
+    signal = pyqtSignal(str, str, str)
 
     def __init__(self, parent=None):
         self._devices = "devices"
@@ -134,6 +134,7 @@ class WelcomeWindow(QWidget):
         self.comboTenderness.update(self._new[param][position])
 
     def jump(self):
+        print("jump")
         self.hide()
         self.files.setDefaulfValue(
             name="devices", position="default", element=self.comboDevices.default)
@@ -143,21 +144,27 @@ class WelcomeWindow(QWidget):
             name="tenderness", position="default", element=self.comboTenderness.default)
 
         if self.dev["default"] and self.baud["default"] and self.tenderness["default"]:
-            plotWindow = Plot_Window(parent=self, device=self.comboDevices.default,
-                                     baudrate=self.comboBaudrate.default,
-                                     tenderness=self.comboTenderness.default,serial=self.serial)
+            plotWindow = Plot_Window(
+                parent=self, serial=self.serial, pkg=self.pkg)
+            print("1")
+
             self.serial.showDevices()
+            print("devices")
             self.signal.connect(self.serial.connect)
-            self.signal.emit(self.comboDevices.default,self.comboBaudrate.default)
+            print('emit')
+            self.signal.emit(self.comboDevices.default,
+                             self.comboBaudrate.default, '1')
+            print('emit2')
         else:
-            plotWindow = Plot_Window(parent=self, device=self.comboDevices.option,
-                                     baudrate=self.comboBaudrate.option,
-                                     tenderness=self.comboTenderness.option, serial=self.serial)
+            plotWindow = Plot_Window(
+                parent=self, serial=self.serial, pkg=self.pkg)
+            print("2")
             self.serial.showDevices()
             self.signal.connect(self.serial.connect)
             self.signal.emit(self.comboDevices.option,
-                             self.comboBaudrate.option)
-        plotWindow.showPlots()
+                             self.comboBaudrate.option, '1')
+        plotWindow.showSecondWindow()
+        print("plot")
 
     def _configText(self, text):
         self.centralText = QLabel(

@@ -1,5 +1,5 @@
 # class to setup view of errors prompt monit
-from Liblarys import *
+from libraries import *
 
 
 class Errors(QDialog):
@@ -13,8 +13,7 @@ class Errors(QDialog):
         self.msg = QLabel(f'{msg1}')
         btn = QDialogButtonBox.Ok
         self.button = QDialogButtonBox(btn)
-        self.button.accepted.connect(self.accept)
-
+        self.button.clicked.connect(self.accept)
         self.layout.addWidget(self.msg)
         self.layout.addWidget(self.button)
         self.setLayout(self.layout)

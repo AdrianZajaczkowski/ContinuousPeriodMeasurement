@@ -1,6 +1,6 @@
 {
     "baudrate": {
-        "default": "",
+        "default": "1000000",
         "standard": [
             "300",
             "600",
@@ -23,13 +23,25 @@
         ]
     },
     "devices": {
-        "default": "",
+        "default": "USB-SERIAL CH340 (COM9)",
         "standard": [
-            "Arduino Mega 2560 (COM6)"
+            "Arduino Uno (COM8)",
+            "USB-SERIAL CH340 (COM9)"
+        ]
+    },
+    "meansurmentTime": {
+        "default": "5 s",
+        "standard": [
+            "1 s",
+            "5 s",
+            "15 s",
+            "1 min",
+            "3 min",
+            "1 h"
         ]
     },
     "tenderness": {
-        "default": "",
+        "default": "1",
         "standard": [
             "1"
         ]

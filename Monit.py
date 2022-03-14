@@ -1,5 +1,5 @@
 # class to config propmpt monit of adding elements
-from Liblarys import *
+from libraries import *
 
 
 class Monit(QDialog):

@@ -1,6 +1,6 @@
 # Class create to chooise elements from lists
 
-from Liblarys import *
+from libraries import *
 
 
 class ComboList(QComboBox):
@@ -45,5 +45,6 @@ class ComboList(QComboBox):
 
     def setData(self, text):
         self.option = text
+        # print(text)
         if not isinstance(text, list):
             self.default = text

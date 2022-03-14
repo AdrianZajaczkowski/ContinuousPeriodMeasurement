@@ -1,9 +1,12 @@
 # class to plot data
+from sqlite3 import Time
 from serial.win32 import EV_CTS
 from SerialConnection import *
-from Liblarys import *
+from libraries import *
 from ComboList import *
+from ConfigFiles import *
 from Errors import Errors
+from TimePrompt import TimePrompt
 from bufforReading import *
 
 pg.setConfigOption('background', 'w')
@@ -11,74 +14,39 @@ pg.setConfigOption('foreground', 'k')
 
 
 class Plot_Window(QMainWindow):
+    serialSignal = pyqtSignal(str, str)
+    popupSignal = pyqtSignal(object)
+
     def __init__(self, parent, **kwargs):
-        self.device = kwargs.pop('device')
-        self.baudrate = kwargs.pop('baudrate')
-        self.tenderness = kwargs.pop('tenderness')
+        self.pkg = kwargs.pop('pkg')
         self.serial = kwargs.pop('serial')
-        self.Nnext, self.Nprev = 0, 0
-        self.overflow = 65535
-        self.F_CPU = 16000000
+        self.timemeansure = self.pkg['meansurmentTime']
+        super(Plot_Window, self).__init__(parent, **kwargs)
+        self.device = None
+        self.baudrate = None
+        self.tenderness = None
+        self.currentDay = None
         self.plots = None
-        self.test = []
         self.mainPlot = None
-        self.iter = 1
-        self.t, self.n = 0, 0
         self.WindowFont = None
         self.GridFont = None
-        self.full = False
-        self.first = True
-        self.errorFlag = False
         self.changeSecond, self.changeMain = True, True
+        self.full = False
+        self.F_CPU = 16000000
+        self.PlotCount = 1
+        self.prompt = TimePrompt(self)
+        self.t, self.n = 0, 0
+        self.files = ConfigFiles()
         self.title_file, self.path, self.openedfile,  self.openedPath = '', '', '', ''
-        self.currentDay = None
         self.timer = QtCore.QTimer()
         self.exit = QAction("Exit Application",
                             triggered=lambda: self.exit_app)
         self.curentMeansure = None
-        super(Plot_Window, self).__init__(parent, **kwargs)
         self.ierrors = Errors(self)
-        self._config = {"time": ["platforma:", "Baudrate:", "Czułość przetwornika"],
-                        "Nxi": [self.device, self.baudrate, self.tenderness]}
+        self._config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
+                        "Txi": [self.device, self.baudrate, self.tenderness]}
         self.setWindowTitle("Python 3.9.7")
-
-        try:
-
-            if isinstance(self.tenderness, str):
-                self.tenderness = float(self.tenderness)
-                self.uiSet()
-
-            elif isinstance(self.tenderness, list):
-                raise ValueError
-
-            elif isinstance(self.device, str) and isinstance(self.baudrate, str):
-                pass
-                # raise Exception
-
-        except (TypeError, ValueError):
-            self.errorFlag = True
-            msg = 'Wybierz poprawną wartość czułości.'
-            self.ierrors.message('Błąd danych', msg)
-            if self.ierrors.exec():
-                self.close()
-                self.parent().show()
-        except Exception:
-            self.errorFlag = True
-            msg = 'Wybierz poprawny mikrokontroler i baudrate.'
-            self.ierrors.message('Błąd danych', msg)
-            if self.ierrors.exec():
-                self.close()
-                self.parent().show()
-
-    def calculations(self):
-        if self.test is not None:
-            print(self.test)
-        else:
-            print("brak")
-
-    def plotses(self, x):
-        self.test.append(x)
-        print(x)
+        self.uiSet()
 
     def closeConnection(self):
         self.timer.stop()
@@ -88,20 +56,6 @@ class Plot_Window(QMainWindow):
         self.currentDay = datetime.now()
         self.curentMeansure = str(
             self.currentDay.strftime("%Y_%m_%d %H_%M_%S"))
-
-    def closeEvent(self, event):
-        reply = QMessageBox.question(
-            self, 'Quit', 'Czy na pewno chcesz skonczyć pomiary?', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-
-        if reply == QMessageBox.Yes:
-            event.accept()
-            self.closeConnection()
-            self.close()
-
-            print('Window closed')
-
-        else:
-            event.ignore()
 
     def uiSet(self):
         self.WindowFont = QFont()
@@ -118,82 +72,67 @@ class Plot_Window(QMainWindow):
 
         self.widget = QWidget()
         self.grid = QGridLayout()
+        self.timeBox = QGroupBox("Czas pomiaru")
+        self.timeButtons = QGridLayout()
         self.chart = pg.GraphicsLayoutWidget(show=True)
-        self.chart.setBackground("w")
 
         self.widget.setLayout(self.grid)
-        self.grid.addWidget(self.startPlot, 0, 0)
-        self.grid.addWidget(self.newPlot, 1, 0)
-        self.grid.addWidget(self.openFile, 2, 0)
-        self.grid.addWidget(self.pointMain, 3, 0)
-        self.grid.addWidget(self.pointSecond, 4, 0)
-        self.grid.addWidget(self.chart, 0, 1, 6, 1)
-
+        self.grid.addWidget(self.startCatchData, 0, 0)
+        self.grid.addWidget(self.openFile, 1, 0)
+        self.grid.addWidget(self.plotPointsInChar, 2, 0)
+        self.grid.addWidget(self.chart, 0, 1, 13, 4)
+        self.timeButtons.addWidget(self.setTimeMeansure, 0, 0)
+        self.timeBox.setLayout(self.timeButtons)
+        self.grid.addWidget(self.timeBox, 3, 0)
         self.setCentralWidget(self.widget)
 
-    def showPlots(self):
-        if not self.errorFlag:
-            self.showMaximized()
-        else:
-            pass
+    def showSecondWindow(self):
+        self.showMaximized()
 
     def buttonsConfig(self):
-        self.startPlot = QPushButton('Rozpocznij rysowanie wykresu')
-        self.startPlot.clicked.connect(self.startPlotting)
-        self.newPlot = QPushButton('Nowy wykres')
-        self.newPlot.clicked.connect(self.clearPlot)
-        self.pointMain = QPushButton('Pokaż punkty głównego wykresu')
-        self.pointMain.clicked.connect(self.pointersMain)
-        self.pointSecond = QPushButton('Pokaż punkty dodatkowego wykresu')
-        self.pointSecond.clicked.connect(self.pointerSecond)
-        self.openFile = QPushButton('Otwórz plik')
+        self.setTimeMeansure = ComboList(
+            self, option=self.timemeansure["standard"], default=self.timemeansure["default"])
+
+        self.startCatchData = QPushButton('Rozpocznij pobieranie danych')
+        self.startCatchData.clicked.connect(self.startMeanurments)
+        self.openFile = QPushButton('Otwórz plik i wyświetl dane')
         self.openFile.clicked.connect(self.openfile)
+        self.plotPointsInChar = QPushButton('Pokaż punkty wykresu')
+        self.plotPointsInChar.clicked.connect(self.plotPointer)
 
-    def plotter(self):    # metoda do dormatowania wykresu
-        self.createCsv(self._config)
-        self.tdata, self.fdata = [None], [None]
-        labels = {'color': 'w', 'font-size': f'{self.GridFont.pixelSize()}px'}
-        if not self.mainPlot:
-            self.mainPlot = self.chart.addPlot(row=0, col=0,
-                                               title="<b><p style=\"font-size:17px\">Ciągły pomiar okresu sygnału</p></b>", **labels)
+    def startMeanurments(self):
+
+        self.currentDataMeansure()
+        self.files.setDefaulfValue(
+            name="meansurmentTime", position="default", element=self.setTimeMeansure.default)
+        self.popupSignal.connect(self.serial.monit)
+        self.serialSignal.connect(self.serial.meansureRange)
+        self.popupSignal.emit(self.prompt)
+        if self.timemeansure["default"]:
+            self.serialSignal.emit(
+                self.setTimeMeansure.default, self.curentMeansure)
+            self.popUpTime(self.setTimeMeansure.default)
         else:
-            pass
-        self.serialLine = self.mainPlot.plot(pen=pg.mkPen('r', width=2))
-        self.mainPlot.showGrid(x=True, y=True, alpha=1)
-        self.mainPlot.setLabel('left', 'Frequency',
-                               units='Hz', **labels)
-        self.mainPlot.setLabel(
-            'bottom', 'Time', units="s", **labels)
-        self.mainPlot.getAxis("bottom").setTickFont(self.GridFont)
-        self.mainPlot.getAxis("bottom").setStyle(tickTextOffset=20)
-        self.mainPlot.getAxis("left").setTickFont(self.GridFont)
-        self.mainPlot.getAxis("left").setStyle(tickTextOffset=20)
-        self.updateData()
+            self.serialSignal.emit(
+                self.setTimeMeansure.option, self.curentMeansure)
+            self.popUpTime(self.setTimeMeansure.option)
 
-    def startPlotting(self):    # metoda do inicjalizowania wykresu głównego
+    def popUpTime(self, timeDesc):
+        self.prompt.message(
+            msg=f'Czas pobierania danych: {timeDesc}. Proszę czaekać.')
+        if self.prompt.exec():
+            self.startCatchData.enable(False)
 
-        self.startPlot.setEnabled(False)
-        # self._connections()
-        self.serial.start()
-        self.plotter()
+    def showPlot(self, x, y):   # metoda do dodania kolejnego wykresu pod aktualnym pomiarem
 
-    def clearPlot(self):     # metoda do czyszczenia dodawanych wykresów
-        self.t = 0
-        self.mainPlot.removeItem(self.serialLine)
-        self.mainPlot.clear()
-        self.mainPlot.replot()
-        self.plotter()
-
-    def secondPlot(self, data):   # metoda do dodania kolejnego wykresu pod aktualnym pomiarem
-
-        if self.iter == 2:
+        if self.PlotCount == 2:
             self.full = True
         if not self.full:
-            self.plots = self.chart.addPlot(row=1, col=0,
-                                            title=f"<b><p style=\"color: black\">Ciągły pomiar okresu sygnału</p></b><")
-            self.secondLine = self.plots.plot(pen=pg.mkPen('r', width=2))
+            self.plots = self.chart.addPlot(row=0, col=0,
+                                            title=f"<b><p style=\"color: black\">{self.title_file}</p></b><")
+            self.plotLine = self.plots.plot(pen=pg.mkPen('r', width=2))
             self.plots.showGrid(x=True, y=True, alpha=1)
-            labels = {'color': 'g',
+            labels = {'color': 'w',
                       'font-size': f'{self.GridFont.pixelSize()}px'}
             self.plots.setLabel('left', 'Frequency',
                                 units='Hz', **labels)
@@ -202,98 +141,44 @@ class Plot_Window(QMainWindow):
             self.plots.getAxis("bottom").setStyle(tickTextOffset=20)
             self.plots.getAxis("left").setTickFont(self.GridFont)
             self.plots.getAxis("left").setStyle(tickTextOffset=20)
-            x = data[0]
-            y = data[1]
-            self.secondLine.setData(y)
-            self.iter += 1
+
+            self.plotLine.setData(x, y)
+            self.PlotCount += 1
         else:
             self.chart.removeItem(self.plots)
             self.full = False
-            self.iter = 1
-            self.secondPlot(data)
+            self.PlotCount = 1
+            self.showPlot(x, y)
 
-    def pointersMain(self):   # metody do wyświetlania punktorów
-        if self.changeMain:
-            self.pointMain.setText("Ukryj punkty głównego wykresu")
-            self.serialLine.setSymbol('o')
-            self.changeMain = False
-        else:
-            self.pointMain.setText("Pokaż punkty głównego wykresu")
-            self.serialLine.setSymbol(None)
-            self.changeMain = True
-
-    def pointerSecond(self):
+    def plotPointer(self):
         if self.changeSecond:
-            self.pointSecond.setText("Ukryj punkty dodatkowego wykresu")
-            self.secondLine.setSymbol('o')
+            self.plotPointsInChar.setText("Ukryj punkty dodatkowego wykresu")
+            self.plotLine.setSymbol('o')
             self.changeSecond = False
         else:
-            self.pointSecond.setText("Pokaż punkty dodatkowego wykresu")
-            self.secondLine.setSymbol(None)
+            self.plotPointsInChar.setText("Pokaż punkty dodatkowego wykresu")
+            self.plotLine.setSymbol(None)
             self.changeSecond = True
 
-    def updateData(self):       # metoda do ciągłego aktualizowania wykresu
-        self.timer.timeout.connect(self.plotSerial)
-        self.timer.start()
-
-    def getValue(self, Nx):
-        self.Nx = Nx
-
-    def plotSerial(self):  # Metoda do wizualizacji danych
-        new = 1
-        Nxi = self.serial.readValue()
-
-        if Nxi is None:
-            # print("dane przekłamane")
-
-            return
-        elif self.first == True:
-            self.first = False
-            return
-        else:
-            # self.Nnext = Ni
-            # if self.Nnext > self.Nprev:
-            #     Nx = self.Nnext - self.Nprev
-            #     self.Nprev = Ni
-            # else:
-            #     Nx = self.Nnext - self.Nprev + self.overflow
-            #     self.Nprev = Ni
-            # self.n = Nx
-            # if self.n != Nx:
-            #     new = abs(self.n-Nx)
-            #     self.n = Nx
-            #     print(new) # tylko wykreślaj dane
-            # reszte wcześniej zapisuj do pliku
-            # print(Nxi)
-            if Nxi:
-                now = datetime.now()
-
-                time = now.strftime("%H:%M:%S")
-                Txi = Nxi*(1/self.F_CPU)
-                fxi = 1/Txi
-                Tx1 = (Nxi+1)*(1/self.F_CPU)
-
-                print(f"tx:{1/Txi}")
-                print(f"tx1:{1/Tx1}")
-                print(f"tx1/tx {(Tx1-Txi)/Txi}")
-
-                Xxi = fxi/self.tenderness
-                bwzg = round((Tx1-Txi), 8)
-                wzg = round((bwzg/Txi), 8)
-                self.t += Txi
-                proc_wzg = wzg*100
-                tmp = list((time, Nxi, Txi, Xxi, self.t, fxi,
-                           Tx1, bwzg, wzg, proc_wzg))
-                self.updateCsv(tmp)
-                self.tdata.append(self.t)
-                self.fdata.append(Xxi)  # zakomentuj i testuj czas
-                x = np.array(self.tdata, dtype='f')
-                y = np.array(self.fdata, dtype='f')
-                self.serialLine.setData(x, y)
-
-    def testss(self):
-        Nx = self.serial.readValue()
-        print(Nx)
+    def analyzeDataFromFile(self, sheet):  # Metoda do wizualizacji danych
+        tList = []
+        frequencyList = []
+        for i in range(len(sheet)):
+            Nxi = int(sheet[i])
+            Txi = Nxi*(1/self.F_CPU)
+            Tx1 = (Nxi+1)*(1/self.F_CPU)
+            fxi = 1/Txi
+            Xxi = fxi/self.tenderness
+            bwzg = round((Tx1-Txi), 8)
+            wzg = round((bwzg/Txi), 8)
+            self.t += Txi
+            proc_wzg = wzg*100
+            row = list((Nxi, Txi, Xxi, self.t, fxi,
+                       Tx1, bwzg, wzg, proc_wzg))
+            self.updateCsv(row)
+            tList.append(self.t)
+            frequencyList.append(Xxi)
+        self.showPlot(tList, frequencyList)
 
     def createFolder(self):   # metoda do stworzenia folderu z pomiarami
         current_directory = os.getcwd()
@@ -301,33 +186,39 @@ class Plot_Window(QMainWindow):
         if not os.path.exists(final_directory):
             os.makedirs(final_directory)
 
-    def createCsv(self, config):    # metoda do stworzenia określonego pliku csv
-        self.currentDataMeansure()
+    def createCsv(self):    # metoda do stworzenia określonego pliku csv
+        config = {"time": ["platforma:", "Baudrate:", "Czułość przetwornika"],
+                  "Nxi": [self.device, self.baudrate, self.tenderness]}
+
         self.title_file = f"pomiar z {self.curentMeansure}.csv"
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
         if not Path(self.path+self.title_file).is_file():
-            headers = ["time", "Nxi", "Txi", "Xxi", "t", "fxi",
+            headers = ["Nxi", "Txi", "Xxi", "t", "fxi",
                        " Błąd kwantowania (Nx+1)", "Błąd bezwzględny", "Błąd względny δ", "Błąd względny δ%"]
             sf = pd.DataFrame(config, columns=headers)
             sf.to_csv(Path(self.path+self.title_file), encoding='utf-8-sig',
                       index=False, sep=';', header=headers,)
 
-    def updateCsv(self, nx):     # metoda do aktualizowania pliku csv
-        row = nx
+    def updateCsv(self, row):     # metoda do aktualizowania pliku csv
         with open(f'{self.path+self.title_file}', 'a+', newline='') as file:
             writer = csv.writer(file, delimiter=';', quoting=csv.QUOTE_NONE)
             writer.writerow(row)
             file.close()
 
-    def readFile(self, filename):  # metoda do odczytu danych do wizualizacji
-        columns = ["Nx", "Tx", "Xxi", "t", "f",
-                   " Blad kwantowania (Nx+1)", "Blad bezwzgledny", "Blad wzgledny δ", "Blad wzgledny δ%"]
+    def readDataFromFile(self, filename):  # metoda do odczytu danych do wizualizacji
+        columns = ["Timestamp", "Ni"]
         data = pd.read_csv(filename, sep=';',
-                           encoding='utf-8-sig', skiprows=4, names=columns, header=None)
-        print(data)
-        t = list(data["t"])
-        f = data["Xxi"]
-        sheet = list((t, f))
+                           encoding='utf-8-sig', names=columns, header=None)
+
+        filenameList = filename.split()
+        timePartOfList = filenameList[-1].split('.')
+        new_title = f'{filenameList[-2]} {timePartOfList[0]}'
+        self.curentMeansure = new_title
+        sheet = list(data["Ni"][7:])
+        self.device = data['Ni'][1]
+        self.baudrate = data['Ni'][3]
+        self.tenderness = float(data['Ni'][4])
+        self.createCsv()
         return sheet
 
     def openfile(self):   # metoda do wyszukania i wybrania pliku z poprzednimi pomiarami
@@ -343,23 +234,5 @@ class Plot_Window(QMainWindow):
             self.openedfile = dialog.selectedFiles()
         if self.openedfile:
             self.openedPath = str(self.openedfile[0])
-            data = self.readFile(self.openedPath)
-            self.secondPlot(data)
-
-
-# app = QApplication(sys.argv)
-
-# # plot = Plot_Window(None, device="Arduino Uno",
-# #                    baudrate="9600", tenderness="1")
-# plot = Plot_Window(None, device="Arduino Mega",
-#                    baudrate="38400", tenderness="1", serial=None)
-# buff = Read(obj=plot)
-# # plot._connections()
-# buff.test1()
-# buff.test2()
-# buff.loops()
-# plot.show()
-
-# # while True:
-# #     plot.testss()
-# sys.exit(app.exec_())
+            data = self.readDataFromFile(self.openedPath)
+            self.analyzeDataFromFile(data)

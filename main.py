@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from WelcomeWindow import WelcomeWindow
-from Liblarys import *
+from libraries import *
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
