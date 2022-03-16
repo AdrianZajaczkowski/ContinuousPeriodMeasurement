@@ -1,7 +1,7 @@
 # lista bibliotek wykorzystanych w projekcie
 # biblioteki do aplikacji okienkowej
 from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtCore import QDir, pyqtSignal, Qt
+from PyQt5.QtCore import QThread, QDir, pyqtSignal, Qt, QObject
 from PyQt5.QtWidgets import QMainWindow, QAction,  QApplication, QDesktopWidget, QComboBox, QGroupBox, QGridLayout, QWidget, QPushButton, QLabel, QLineEdit, QDialogButtonBox, QVBoxLayout, QHBoxLayout, QDialog, QMessageBox, QFileDialog
 from PyQt5.QtGui import QFont, QPixmap, QKeySequence
 

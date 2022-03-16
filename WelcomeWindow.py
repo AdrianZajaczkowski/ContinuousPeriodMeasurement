@@ -20,10 +20,10 @@ class WelcomeWindow(QWidget):
         self._configLayout()
 
     def _configLayout(self):
+
         font = QFont()
         font.setPixelSize(17)
         self.setFont(font)
-        # self.setFixedSize(900, 600)
         self.resize(1024, 700)
         frame = self.frameGeometry()
         position = QDesktopWidget().availableGeometry().center()
@@ -134,7 +134,7 @@ class WelcomeWindow(QWidget):
         self.comboTenderness.update(self._new[param][position])
 
     def jump(self):
-        print("jump")
+
         self.hide()
         self.files.setDefaulfValue(
             name="devices", position="default", element=self.comboDevices.default)
@@ -144,27 +144,25 @@ class WelcomeWindow(QWidget):
             name="tenderness", position="default", element=self.comboTenderness.default)
 
         if self.dev["default"] and self.baud["default"] and self.tenderness["default"]:
-            plotWindow = Plot_Window(
-                parent=self, serial=self.serial, pkg=self.pkg)
-            print("1")
-
             self.serial.showDevices()
-            print("devices")
             self.signal.connect(self.serial.connect)
-            print('emit')
+
             self.signal.emit(self.comboDevices.default,
                              self.comboBaudrate.default, '1')
-            print('emit2')
-        else:
             plotWindow = Plot_Window(
                 parent=self, serial=self.serial, pkg=self.pkg)
-            print("2")
+
+            plotWindow.showSecondWindow()
+        else:
             self.serial.showDevices()
             self.signal.connect(self.serial.connect)
+
             self.signal.emit(self.comboDevices.option,
                              self.comboBaudrate.option, '1')
+        plotWindow = Plot_Window(
+            parent=self, serial=self.serial, pkg=self.pkg)
+
         plotWindow.showSecondWindow()
-        print("plot")
 
     def _configText(self, text):
         self.centralText = QLabel(

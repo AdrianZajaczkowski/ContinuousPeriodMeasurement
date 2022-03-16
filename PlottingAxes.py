@@ -15,7 +15,7 @@ pg.setConfigOption('foreground', 'k')
 
 class Plot_Window(QMainWindow):
     serialSignal = pyqtSignal(str, str)
-    popupSignal = pyqtSignal(object)
+    buttonFileSignal = pyqtSignal(object, object)
 
     def __init__(self, parent, **kwargs):
         self.pkg = kwargs.pop('pkg')
@@ -34,30 +34,32 @@ class Plot_Window(QMainWindow):
         self.full = False
         self.F_CPU = 16000000
         self.PlotCount = 1
+        self.df_tmp = None
         self.prompt = TimePrompt(self)
-        self.t, self.n = 0, 0
         self.files = ConfigFiles()
         self.title_file, self.path, self.openedfile,  self.openedPath = '', '', '', ''
-        self.timer = QtCore.QTimer()
         self.exit = QAction("Exit Application",
                             triggered=lambda: self.exit_app)
-        self.curentMeansure = None
+        self.curentMeansureTime = None
+        self.fileMeansureTime = None
         self.ierrors = Errors(self)
         self._config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
                         "Txi": [self.device, self.baudrate, self.tenderness]}
         self.setWindowTitle("Python 3.9.7")
+        self.serial.errorSignal.connect(self.wrongConfig)
         self.uiSet()
 
     def closeConnection(self):
-        self.timer.stop()
         self.serial.endConnection()
 
     def currentDataMeansure(self):
         self.currentDay = datetime.now()
-        self.curentMeansure = str(
+        self.curentMeansureTime = str(
             self.currentDay.strftime("%Y_%m_%d %H_%M_%S"))
 
     def uiSet(self):
+        self.currentDataMeansure()
+
         self.WindowFont = QFont()
         self.WindowFont.setPixelSize(17)
         self.GridFont = QFont()
@@ -101,27 +103,38 @@ class Plot_Window(QMainWindow):
         self.plotPointsInChar.clicked.connect(self.plotPointer)
 
     def startMeanurments(self):
-
+        self.startCatchData.setEnabled(False)
+        self.startCatchData.setText('Pobieranie danych')
         self.currentDataMeansure()
         self.files.setDefaulfValue(
             name="meansurmentTime", position="default", element=self.setTimeMeansure.default)
-        self.popupSignal.connect(self.serial.monit)
-        self.serialSignal.connect(self.serial.meansureRange)
-        self.popupSignal.emit(self.prompt)
+
         if self.timemeansure["default"]:
-            self.serialSignal.emit(
-                self.setTimeMeansure.default, self.curentMeansure)
-            self.popUpTime(self.setTimeMeansure.default)
+            self.thread2 = threading.Thread(
+                target=self.serial.meansureRange, args=(self.setTimeMeansure.default, self.curentMeansureTime,))
         else:
-            self.serialSignal.emit(
-                self.setTimeMeansure.option, self.curentMeansure)
-            self.popUpTime(self.setTimeMeansure.option)
+            self.thread2 = threading.Thread(
+                target=self.serial.meansureRange, args=(self.setTimeMeansure.option, self.curentMeansureTime,))
+        self.serial.popUpSignal.connect(self.popUpTime)
+        self.serial.finishSignal.connect(self.buttonState)
+        self.thread2.start()
+
+    def buttonState(self, desc):
+        self.prompt.message(msg=f'Pomiar trwał: {desc}')
+        if self.prompt.show():
+            self.prompt.layout.removeWidget()
+
+        self.startCatchData.setText('Rozpocznij pobieranie danych')
+        self.startCatchData.setEnabled(True)
+
+    def wrongConfig(self):
+        self.startCatchData.setEnabled(False)
 
     def popUpTime(self, timeDesc):
         self.prompt.message(
-            msg=f'Czas pobierania danych: {timeDesc}. Proszę czaekać.')
-        if self.prompt.exec():
-            self.startCatchData.enable(False)
+            msg=f'Czas pobierania danych: {timeDesc}. Proszę czekać.')
+        if self.prompt.show():
+            self.prompt.layout.removeWidget()
 
     def showPlot(self, x, y):   # metoda do dodania kolejnego wykresu pod aktualnym pomiarem
 
@@ -141,7 +154,6 @@ class Plot_Window(QMainWindow):
             self.plots.getAxis("bottom").setStyle(tickTextOffset=20)
             self.plots.getAxis("left").setTickFont(self.GridFont)
             self.plots.getAxis("left").setStyle(tickTextOffset=20)
-
             self.plotLine.setData(x, y)
             self.PlotCount += 1
         else:
@@ -161,9 +173,22 @@ class Plot_Window(QMainWindow):
             self.changeSecond = True
 
     def analyzeDataFromFile(self, sheet):  # Metoda do wizualizacji danych
-        tList = []
-        frequencyList = []
+        t = 0
+        calculated_list = []
+        time_list, freq_list = [], []
+        calculated_dictionary = {'Nxi': {},
+                                 'Txi': {},
+                                 'Xxi': {},
+                                 't': {},
+                                 'fxi': {},
+                                 'Błąd kwantowania (Nx+1)': {},
+                                 'Błąd bezwzględny': {},
+                                 'Błąd względny δ': {},
+                                 'Błąd względny δ%': {},
+                                 }
+
         for i in range(len(sheet)):
+
             Nxi = int(sheet[i])
             Txi = Nxi*(1/self.F_CPU)
             Tx1 = (Nxi+1)*(1/self.F_CPU)
@@ -171,22 +196,38 @@ class Plot_Window(QMainWindow):
             Xxi = fxi/self.tenderness
             bwzg = round((Tx1-Txi), 8)
             wzg = round((bwzg/Txi), 8)
-            self.t += Txi
+            t += Txi
             proc_wzg = wzg*100
-            row = list((Nxi, Txi, Xxi, self.t, fxi,
-                       Tx1, bwzg, wzg, proc_wzg))
-            self.updateCsv(row)
-            tList.append(self.t)
-            frequencyList.append(Xxi)
-        self.showPlot(tList, frequencyList)
+            calculated_dictionary['Nxi'] = Nxi
+            calculated_dictionary['Txi'] = Txi
+            calculated_dictionary['Błąd kwantowania (Nx+1)'] = Tx1
+            calculated_dictionary['fxi'] = fxi
+            calculated_dictionary['Xxi'] = Xxi
+            calculated_dictionary['Błąd bezwzględny'] = bwzg
+            calculated_dictionary['Błąd względny δ'] = wzg
+            calculated_dictionary['t'] = t
+            calculated_dictionary['Błąd względny δ%'] = proc_wzg
+            time_list.append(t)
+            freq_list.append(Xxi)
 
-    def createFolder(self):   # metoda do stworzenia folderu z pomiarami
+            calculated_list.append(calculated_dictionary)
+
+        self.addToPickle(calculated_list, True)
+        self.buttonFileSignal.emit(time_list,
+                                   freq_list)
+        # TODO
+        # FIXME
+
+        # NOTE
+        # Note podczas odczytywania danych z pliku tytuł None- sprawdź sposób tworzenia i odczytu plikó
+
+    def createFolder(self):
         current_directory = os.getcwd()
         final_directory = os.path.join(current_directory, r'wyniki pomiarów')
         if not os.path.exists(final_directory):
             os.makedirs(final_directory)
 
-    def createCsv(self):    # metoda do stworzenia określonego pliku csv
+    def createCsv(self):    # Note metoda do stworzenia określonego pliku csv
         config = {"time": ["platforma:", "Baudrate:", "Czułość przetwornika"],
                   "Nxi": [self.device, self.baudrate, self.tenderness]}
 
@@ -205,34 +246,87 @@ class Plot_Window(QMainWindow):
             writer.writerow(row)
             file.close()
 
+    def addToPickle(self, df_data, flag):
+        if flag:
+            self.df_tmp = self.df_tmp.append(df_data, ignore_index=True)
+            f = bz2.BZ2File(Path(f'{self.path}{self.title_file}.pbz2'), 'wb')
+            pickle.dump(self.df_tmp, f)
+            f.close()
+        else:
+            self.df_tmp = df_data
+
+    # metoda do stworzenia określonego pliku csv
+
+    def createPickleSheet(self, flagFile):
+        if flagFile:
+            title = self.curentMeansureTime
+        else:
+            title = self.fileMeansureTime
+        config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
+                  "Txi": [self.device, self.baudrate, self.tenderness]}
+        headers = ["Nxi", "Txi", "Xxi", "t", "fxi",
+                   " Błąd kwantowania (Nx+1)", "Błąd bezwzględny", "Błąd względny δ", "Błąd względny δ%"]
+        self.title_file = f"pomiar z {title}"
+        self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
+        if not Path(f'{self.path}{self.title_file}.pbz2').is_file():
+            sf = pd.DataFrame(config, columns=headers)
+            self.addToPickle(sf, False)
+            return True
+        else:
+            return False
+
     def readDataFromFile(self, filename):  # metoda do odczytu danych do wizualizacji
-        columns = ["Timestamp", "Ni"]
-        data = pd.read_csv(filename, sep=';',
-                           encoding='utf-8-sig', names=columns, header=None)
+        with bz2.BZ2File(filename, 'rb') as serialSheet:
+            data = pickle.load(serialSheet)
 
         filenameList = filename.split()
         timePartOfList = filenameList[-1].split('.')
         new_title = f'{filenameList[-2]} {timePartOfList[0]}'
-        self.curentMeansure = new_title
-        sheet = list(data["Ni"][7:])
-        self.device = data['Ni'][1]
-        self.baudrate = data['Ni'][3]
-        self.tenderness = float(data['Ni'][4])
-        self.createCsv()
-        return sheet
+        sheet = list(data['Nxi'][7:])
+        self.device = data['Nxi'][0]
+        self.baudrate = data['Nxi'][2]
+        self.tenderness = float(data['Nxi'][3])
+        if self.curentMeansureTime == new_title:
+            fileState = self.createPickleSheet(True)
+        else:
+            self.fileMeansureTime = new_title
+            fileState = self.createPickleSheet(False)
+        if fileState:
+            return sheet
+        else:
+            return False
 
     def openfile(self):   # metoda do wyszukania i wybrania pliku z poprzednimi pomiarami
+        self.openFile.setEnabled(False)
         file = QDir.currentPath()
         dialog = QFileDialog(self)
         dialog.setWindowTitle('File')
         dialog.setNameFilters(
-            ['All files (*)', 'CSV files (*.csv)'])
+            ['All files (*)', 'Pickle files (*.pbz2)'])
         dialog.setDirectory(file)
         dialog.setFileMode(QFileDialog.ExistingFile)
 
         if dialog.exec_() == QDialog.Accepted:
             self.openedfile = dialog.selectedFiles()
-        if self.openedfile:
-            self.openedPath = str(self.openedfile[0])
-            data = self.readDataFromFile(self.openedPath)
-            self.analyzeDataFromFile(data)
+            if self.openedfile:
+                self.openedPath = str(self.openedfile[0])
+                data = self.readDataFromFile(self.openedPath)
+                if data == False:
+                    self.prompt.message(
+                        msg=f'Plik już istnieje. Zapisano w:\n{self.path}{self.title_file}.pbz2')
+                    if self.prompt.exec():
+                        self.prompt.layout.removeWidget()
+                    self.openFile.setEnabled(True)
+                else:
+                    analyzeThread = threading.Thread(
+                        target=self.analyzeDataFromFile, args=(data,))
+                    self.openFile.setText('Przetwarzanie danych')
+                    analyzeThread.start()
+                    self.buttonFileSignal.connect(self.openButtonState)
+        else:
+            self.openFile.setEnabled(True)
+
+    def openButtonState(self, time, freq):
+        self.showPlot(time, freq)
+        self.openFile.setText('Otwórz plik i wyświetl dane')
+        self.openFile.setEnabled(True)

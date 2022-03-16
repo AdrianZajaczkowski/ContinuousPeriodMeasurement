@@ -3,9 +3,16 @@ from Errors import Errors
 from TimePrompt import TimePrompt
 from libraries import *
 import re
+import pickle
+import bz2
 
 
-class SerialConnection(QtWidgets.QWidget):
+class SerialConnection(QObject):
+    finishSignal = pyqtSignal(str)
+    popUpSignal = pyqtSignal(str)
+    dataSignal = pyqtSignal(object, object)
+    errorSignal = pyqtSignal()
+
     def __init__(self):
         super(SerialConnection, self).__init__()
         self.devicesList = []
@@ -19,7 +26,7 @@ class SerialConnection(QtWidgets.QWidget):
         self.ierrors = Errors()
         self.timePopUp = None
         self.timer = QtCore.QTimer()
-        self.tmp, self.value = 0, 1
+        self.df_tmp, self.value = None, 1
         self.title = ''
         self.flag = ''
         self.config = ''
@@ -54,37 +61,38 @@ class SerialConnection(QtWidgets.QWidget):
             for port in self.ports:
                 if device in port.description:
                     self.COM = port[0]
-                    print(self.COM)
             self.connection.port = f'{self.COM}'
             self.connection.baudrate = self.baudrate
             self.connection.bytesize = serial.EIGHTBITS
             self.connection.stopbits = serial.STOPBITS_ONE
             self.connection.parity = serial.PARITY_NONE
             self.connection.timeout = None
-            self.config = {"timestamp": ["Device", "Port", "Baudrate", "Tenderness"],
-                           "Ni": [device, self.connection.port, self.connection.baudrate, tenderness], }
-            print(self.connection.isOpen())
+            self.config = {'timestamp': ["Device", "Port", "Baudrate", "Tenderness"],
+                           'Nxi': [device, self.connection.port, self.connection.baudrate, tenderness], }
             self.connection.close()
             self.connection.open()
-
+            
         except ValueError as value:
             value = "\n Niepoprawna wartość czułości. Wybierz ponownie. Jesli jest zmiennoprzecinkowa wykorzystaj kropkę \" . \" "
             self.ierrors.message('Błąd', value)
             if self.ierrors.exec():
                 self.ierrors.close()
                 self.endConnection()
+                self.errorSignal.emit()
         except TypeError as ty:
             msg = "\n Brak wybranej płytki lub baundrate.Wybierz ponownie ustawienia płytki"
             self.ierrors.message('Błąd', msg)
             if self.ierrors.exec():
                 self.ierrors.close()
                 self.endConnection()
+                self.errorSignal.emit()
         except Exception as e:
             msg = "\n Brak podłaczonej płytki. Podłącz płytkę i zacznij ponownie."
-            self.ierrors.message('Błąd', e)
+            self.ierrors.message('Błąd', msg)
             if self.ierrors.exec():
                 self.ierrors.close()
                 self.endConnection()
+                self.errorSignal.emit()
 
     def rescan(self):
         time.sleep(3)
@@ -96,19 +104,32 @@ class SerialConnection(QtWidgets.QWidget):
     #         calculated_checksum ^= byte
     #     return calculated_checksum
 
-    def writers(self, row):
-        with open(f'{self.path}RAW {self.title}.csv', 'a+', newline="") as fd:
-            writer = csv.writer(fd, delimiter=';', quoting=csv.QUOTE_NONE)
-            writer.writerow(row)
+    def writers(self, dictionaryList):
+        df_final = pd.DataFrame.from_dict(dictionaryList)
+        self.compressed_pickle(df_final, True)
+        # with open(f'{self.path}RAW {self.title}.csv', 'a+', newline="") as fd:
+        #     writer = csv.writer(fd, delimiter=';', quoting=csv.QUOTE_NONE)
+        #     writer.writerow(row)
 
-    def createCsv(self):    # metoda do stworzenia określonego pliku csv
-        title_file = f"RAW {self.title}.csv"
+    def compressed_pickle(self, df_data, flag):
+
+        # Path(self.path+title_file)
+        if flag:
+            new_df = self.df_tmp.append(df_data, ignore_index=True)
+            f = bz2.BZ2File(Path(f'{self.path}RAW {self.title}.pbz2'), 'wb')
+            pickle.dump(new_df, f)
+            f.close()
+        else:
+            self.df_tmp = df_data
+
+    def createPickleFile(self):    # metoda do stworzenia określonego pliku csv
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
-        if not Path(self.path+self.title).is_file():
-            headers = ["timestamp", "Ni"]
+        if not Path(f'{self.path}RAW {self.title}.pbz2').is_file():
+            headers = ["timestamp", "Nxi"]
             sf = pd.DataFrame(self.config, columns=headers)
-            sf.to_csv(Path(self.path+title_file), encoding='utf-8-sig',
-                      index=False, sep=';', header=headers,)
+            self.compressed_pickle(sf, False)
+            # sf.to_csv(Path(self.path+title_file), encoding='utf-8-sig',
+            #           index=False, sep=';', header=headers,)
 
     def validTime(self, amountOfSeconds):
         time.sleep(amountOfSeconds)
@@ -117,7 +138,8 @@ class SerialConnection(QtWidgets.QWidget):
     def meansureRange(self, chooise, filename):
         self.title = filename
         self.chooise = chooise
-        self.createCsv()
+        self.popUpSignal.emit(chooise)
+        self.createPickleFile()
         time.sleep(0.5)
         listOfTime = re.split(r'(\D+)', chooise)
         if listOfTime[1].strip() == 's':
@@ -126,8 +148,12 @@ class SerialConnection(QtWidgets.QWidget):
             self.readValue(int(listOfTime[0])*60)
         if listOfTime[1].strip() == 'h':
             self.readValue(int(listOfTime[0])*3600)
+        self.finishSignal.emit(chooise)
 
     def readValue(self, timeOfExecution):
+        dictionary_serial = {'timestamp': None,
+                             'Nxi': None}
+
         self.flag = True
         thread1 = threading.Thread(
             target=self.validTime, args=(timeOfExecution,))
@@ -143,14 +169,15 @@ class SerialConnection(QtWidgets.QWidget):
                 valueDifference = Ni - self.lastValue
                 if valueDifference < 0:
                     valueDifference += self.overflow
-
-                self.storage = [timeNow, valueDifference]
-                self.writers(self.storage)
+                dictionary_serial['timestamp'] = timeNow
+                dictionary_serial['Nxi'] = valueDifference
+                self.storage.append(dictionary_serial)
                 self.lastValue = Ni
-            time.sleep(1)
-            self.timePopUp.message(msg='Koniec Pomiaru')
-            if self.timePopUp.exec():
-                pass
+            self.writers(self.storage)
+            # time.sleep(1)
+            # self.timePopUp.message(msg='Koniec Pomiaru')
+            # if self.timePopUp.exec():
+            #     pass
 
         except serial.SerialException as e:
             msg = 'Błąd portu USB. Sprawdź połączenie i zacznij pomiary ponownie'
