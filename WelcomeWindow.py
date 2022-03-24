@@ -142,20 +142,19 @@ class WelcomeWindow(QWidget):
             name="baudrate", position="default", element=self.comboBaudrate.default)
         self.files.setDefaulfValue(
             name="tenderness", position="default", element=self.comboTenderness.default)
-
+        self.serial.showDevices()
+        self.signal.connect(self.serial.connect)
         if self.dev["default"] and self.baud["default"] and self.tenderness["default"]:
-            self.serial.showDevices()
-            self.signal.connect(self.serial.connect)
+            # self.serial.showDevices()
+            # self.signal.connect(self.serial.connect)
 
             self.signal.emit(self.comboDevices.default,
                              self.comboBaudrate.default, '1')
-            plotWindow = Plot_Window(
-                parent=self, serial=self.serial, pkg=self.pkg)
+            # plotWindow = Plot_Window(
+            #     parent=self, serial=self.serial, pkg=self.pkg)
 
-            plotWindow.showSecondWindow()
+            # plotWindow.showSecondWindow()
         else:
-            self.serial.showDevices()
-            self.signal.connect(self.serial.connect)
 
             self.signal.emit(self.comboDevices.option,
                              self.comboBaudrate.option, '1')

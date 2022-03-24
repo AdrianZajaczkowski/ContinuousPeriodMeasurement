@@ -15,7 +15,8 @@ pg.setConfigOption('foreground', 'k')
 
 class Plot_Window(QMainWindow):
     serialSignal = pyqtSignal(str, str)
-    buttonFileSignal = pyqtSignal(object, object)
+    RawFileSignal = pyqtSignal()
+    AnalyzedFileSignal = pyqtSignal(object, object)
 
     def __init__(self, parent, **kwargs):
         self.pkg = kwargs.pop('pkg')
@@ -30,11 +31,13 @@ class Plot_Window(QMainWindow):
         self.mainPlot = None
         self.WindowFont = None
         self.GridFont = None
+        self.df_tmp = None
         self.changeSecond, self.changeMain = True, True
         self.full = False
         self.F_CPU = 16000000
         self.PlotCount = 1
-        self.df_tmp = None
+        self.timeList = []
+        self.freqList = []
         self.prompt = TimePrompt(self)
         self.files = ConfigFiles()
         self.title_file, self.path, self.openedfile,  self.openedPath = '', '', '', ''
@@ -80,12 +83,13 @@ class Plot_Window(QMainWindow):
 
         self.widget.setLayout(self.grid)
         self.grid.addWidget(self.startCatchData, 0, 0)
-        self.grid.addWidget(self.openFile, 1, 0)
-        self.grid.addWidget(self.plotPointsInChar, 2, 0)
+        self.grid.addWidget(self.analyzeFile, 1, 0)
+        self.grid.addWidget(self.plotFile, 2, 0)
+        self.grid.addWidget(self.plotPointsInChar, 3, 0)
         self.grid.addWidget(self.chart, 0, 1, 13, 4)
         self.timeButtons.addWidget(self.setTimeMeansure, 0, 0)
         self.timeBox.setLayout(self.timeButtons)
-        self.grid.addWidget(self.timeBox, 3, 0)
+        self.grid.addWidget(self.timeBox, 4, 0)
         self.setCentralWidget(self.widget)
 
     def showSecondWindow(self):
@@ -97,10 +101,23 @@ class Plot_Window(QMainWindow):
 
         self.startCatchData = QPushButton('Rozpocznij pobieranie danych')
         self.startCatchData.clicked.connect(self.startMeanurments)
-        self.openFile = QPushButton('Otwórz plik i wyświetl dane')
-        self.openFile.clicked.connect(self.openfile)
+        self.analyzeFile = QPushButton('Analizuj dane')
+        self.analyzeFile.clicked.connect(self.openRawFile)
+        self.plotFile = QPushButton('Wyświetl dane')
+        self.plotFile.clicked.connect(self.showAnalyzedData)
         self.plotPointsInChar = QPushButton('Pokaż punkty wykresu')
         self.plotPointsInChar.clicked.connect(self.plotPointer)
+        # TODO ogarnij rozdzielenie danych
+
+    def showAnalyzedData(self):
+        self.openAnalyzedFile()
+
+        self.AnalyzedFileSignal.connect(self.analyzedPlot)
+        # self.showPlot(self.timeList, self.freqList)
+
+    def analyzedPlot(self, time, freq):
+        self.showPlot(time, freq)
+        self.timeList, self.freqList = [], []
 
     def startMeanurments(self):
         self.startCatchData.setEnabled(False)
@@ -137,6 +154,8 @@ class Plot_Window(QMainWindow):
             self.prompt.layout.removeWidget()
 
     def showPlot(self, x, y):   # metoda do dodania kolejnego wykresu pod aktualnym pomiarem
+        print(len(x))
+        print(len(y))
 
         if self.PlotCount == 2:
             self.full = True
@@ -164,18 +183,17 @@ class Plot_Window(QMainWindow):
 
     def plotPointer(self):
         if self.changeSecond:
-            self.plotPointsInChar.setText("Ukryj punkty dodatkowego wykresu")
+            self.plotPointsInChar.setText("Ukryj punkty wykresu")
             self.plotLine.setSymbol('o')
             self.changeSecond = False
         else:
-            self.plotPointsInChar.setText("Pokaż punkty dodatkowego wykresu")
+            self.plotPointsInChar.setText("Pokaż punkty wykresu")
             self.plotLine.setSymbol(None)
             self.changeSecond = True
 
     def analyzeDataFromFile(self, sheet):  # Metoda do wizualizacji danych
         t = 0
         calculated_list = []
-        time_list, freq_list = [], []
         calculated_dictionary = {'Nxi': {},
                                  'Txi': {},
                                  'Xxi': {},
@@ -207,25 +225,24 @@ class Plot_Window(QMainWindow):
             calculated_dictionary['Błąd względny δ'] = wzg
             calculated_dictionary['t'] = t
             calculated_dictionary['Błąd względny δ%'] = proc_wzg
-            time_list.append(t)
-            freq_list.append(Xxi)
+            # self.timeList.append(t)
+            # self.freqList.append(Xxi)
 
-            calculated_list.append(calculated_dictionary)
+            calculated_list.append(calculated_dictionary.copy())
 
         self.addToPickle(calculated_list, True)
-        self.buttonFileSignal.emit(time_list,
-                                   freq_list)
-        # TODO
-        # FIXME
 
-        # NOTE
-        # Note podczas odczytywania danych z pliku tytuł None- sprawdź sposób tworzenia i odczytu plikó
+        self.RawFileSignal.emit()
 
     def createFolder(self):
         current_directory = os.getcwd()
         final_directory = os.path.join(current_directory, r'wyniki pomiarów')
         if not os.path.exists(final_directory):
             os.makedirs(final_directory)
+
+    def dataframecreate(self, param):
+        file = pd.DataFrame(param)
+        print(file)
 
     def createCsv(self):    # Note metoda do stworzenia określonego pliku csv
         config = {"time": ["platforma:", "Baudrate:", "Czułość przetwornika"],
@@ -275,7 +292,35 @@ class Plot_Window(QMainWindow):
         else:
             return False
 
-    def readDataFromFile(self, filename):  # metoda do odczytu danych do wizualizacji
+    def openAnalyzedFile(self):
+        file = QDir.currentPath()
+        dialog = QFileDialog(self)
+        dialog.setWindowTitle('File')
+        dialog.setNameFilters(
+            ['Pickle files (*.pbz2)'])
+        dialog.setDirectory(file)
+        dialog.setFileMode(QFileDialog.ExistingFile)
+
+        if dialog.exec_() == QDialog.Accepted:
+            self.openedfile = dialog.selectedFiles()
+            if self.openedfile:
+                self.openedPath = str(self.openedfile[0])
+                analyzeThreading = threading.Thread(
+                    target=self.readAnalyzedFile, args=(self.openedPath,))
+                analyzeThreading.start()
+
+    def readAnalyzedFile(self, filename):
+        with bz2.BZ2File(filename, 'rb') as serialSheet:
+            data = pickle.load(serialSheet)
+
+        timeListtmp = data['t'][7:]
+        freqListtmp = data['Xxi'][7:]
+        self.timeList = list(map(float, timeListtmp))
+        self.freqList = list(map(float, freqListtmp))
+        self.AnalyzedFileSignal.emit(self.timeList, self.freqList)
+
+    # metoda do odczytu danych do wizualizacji
+    def readRawDataFromFile(self, filename):
         with bz2.BZ2File(filename, 'rb') as serialSheet:
             data = pickle.load(serialSheet)
 
@@ -296,8 +341,7 @@ class Plot_Window(QMainWindow):
         else:
             return False
 
-    def openfile(self):   # metoda do wyszukania i wybrania pliku z poprzednimi pomiarami
-        self.openFile.setEnabled(False)
+    def openRawFile(self):   # metoda do wyszukania i wybrania pliku z poprzednimi pomiarami
         file = QDir.currentPath()
         dialog = QFileDialog(self)
         dialog.setWindowTitle('File')
@@ -306,27 +350,27 @@ class Plot_Window(QMainWindow):
         dialog.setDirectory(file)
         dialog.setFileMode(QFileDialog.ExistingFile)
 
+        self.analyzeFile.setEnabled(False)
         if dialog.exec_() == QDialog.Accepted:
             self.openedfile = dialog.selectedFiles()
             if self.openedfile:
                 self.openedPath = str(self.openedfile[0])
-                data = self.readDataFromFile(self.openedPath)
+                data = self.readRawDataFromFile(self.openedPath)
                 if data == False:
                     self.prompt.message(
                         msg=f'Plik już istnieje. Zapisano w:\n{self.path}{self.title_file}.pbz2')
                     if self.prompt.exec():
                         self.prompt.layout.removeWidget()
-                    self.openFile.setEnabled(True)
+                    self.analyzeFile.setEnabled(True)
                 else:
                     analyzeThread = threading.Thread(
                         target=self.analyzeDataFromFile, args=(data,))
-                    self.openFile.setText('Przetwarzanie danych')
+                    self.analyzeFile.setText('Przetwarzanie danych')
                     analyzeThread.start()
-                    self.buttonFileSignal.connect(self.openButtonState)
+                    self.RawFileSignal.connect(self.openButtonState)
         else:
-            self.openFile.setEnabled(True)
+            self.analyzeFile.setEnabled(True)
 
-    def openButtonState(self, time, freq):
-        self.showPlot(time, freq)
-        self.openFile.setText('Otwórz plik i wyświetl dane')
-        self.openFile.setEnabled(True)
+    def openButtonState(self):
+        self.analyzeFile.setText('Analizuj dane')
+        self.analyzeFile.setEnabled(True)
