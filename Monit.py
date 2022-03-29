@@ -1,5 +1,6 @@
-# class to config propmpt monit of adding elements
 from libraries import *
+
+# klasa od okna z dodawaniem elementów do list
 
 
 class Monit(QDialog):

@@ -1,12 +1,16 @@
 from libraries import *
-from ConfigFiles import *
+from ConfigDropList import *
 from ComboList import *
 from Monit import *
 from PlottingAxes import *
 
+# Klasa odpowiedzialna za wprowadzenie ustawień startowych do pragoramu
+
 
 class WelcomeWindow(QWidget):
-    signal = pyqtSignal(str, str, str)
+    # sygnał odpowiadający za przekazanie parametrów do metody SerialConnection.connect()
+    # sygnał odpowiadający za przekazanie parametrów do metody SerialConnection.connect()
+    signalSerial = pyqtSignal(str, str, str)
 
     def __init__(self, parent=None):
         self._devices = "devices"
@@ -14,13 +18,13 @@ class WelcomeWindow(QWidget):
         self._tenderness = "tenderness"
         self.default = False
         super(WelcomeWindow, self).__init__(parent)
-        self.files = ConfigFiles()
         self.serial = SerialConnection()
+        self.files = ConfigDropList(serial=self.serial)
         self.setWindowTitle("Python 3.9.7")
+        self.serial.showDevices()  # wykrycie podłaczonych mikrokontrolerów
         self._configLayout()
 
-    def _configLayout(self):
-
+    def _configLayout(self):  # metoda do konfiguracji okna klasy
         font = QFont()
         font.setPixelSize(17)
         self.setFont(font)
@@ -31,23 +35,22 @@ class WelcomeWindow(QWidget):
         self.move(frame.topLeft())
         self.logoLabel = QLabel(self)
         self.logo = QPixmap('..\MeansurePerioid\sheets\pollubLogo.png')
-
         self.logoLabel.setPixmap(self.logo)
-
+        # pobieranie wartości do wyświetlenia z pliku config.json przy pomocy klasy ConfigDropList()
         self.pkg = self.files.showData()
         self.dev = self.pkg[self._devices]
         self.baud = self.pkg[self._baudrate]
         self.tenderness = self.pkg[self._tenderness]
         self.descr = self._configText(text=self.pkg["text"]['Start'])
         self.author = self._configText(text=self.pkg["text"]['Autor'])
-
+        # inicjacja rozwijanych list
         self.comboDevices = ComboList(
             self, option=self.dev["standard"], default=self.dev["default"])
         self.comboBaudrate = ComboList(
             self, option=self.baud["standard"], default=self.baud["default"])
         self.comboTenderness = ComboList(
             self, option=self.tenderness["standard"], default=self.tenderness["default"])
-
+        # tworzenie obiektów wspomagających edytowanie list
         self.addDeviceButton = QPushButton('Dodaj nową platformę', self)
         self.addTendernessButton = QPushButton(
             'Dodaj czułość przekaźnika', self)
@@ -57,7 +60,8 @@ class WelcomeWindow(QWidget):
         self.goButton = QPushButton('Zacznij pomiary', self)
         self.logoLabel.setAlignment(
             QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-
+        # przesyłanie danych z okien wyboru do ponownego zapisu do pliku config.json
+        # takie działanie ma na celu zapis nowych danych do pliku i późniejsze wykorzystanie danych
         addDevice = partial(self.addModule, self.comboDevices,
                             self._devices, "standard", 'Platforma', 'Wpisz nową platformę')
         addTenderness = partial(self.addModule, self.comboTenderness,
@@ -71,7 +75,7 @@ class WelcomeWindow(QWidget):
         self.addTendernessButton.clicked.connect(addTenderness)
         self.resetTendernessButton.clicked.connect(resetTenderness)
         self.goButton.clicked.connect(self.jump)
-
+        # inicjowanie siatki elementów oraz grup elementów do wyświetlenia
         self.deviceBox = QGroupBox("Platforma")
         self.baundrateBox = QGroupBox("Baudrate")
         self.tendernessBox = QGroupBox("Czułość przetwornika")
@@ -79,7 +83,7 @@ class WelcomeWindow(QWidget):
         self.deviceLabel = QGridLayout()
         self.baundLabel = QGridLayout()
         self.tendernessLabel = QGridLayout()
-
+        # rozmiezczenie elementów w interfejsie okna
         self.specify.addWidget(self.logoLabel, 0, 0, 1, 0)
         self.specify.addWidget(self.descr, 1, 0, 2, 3)
         self.specify.addWidget(self.author, 2, 0, 1, 0)
@@ -102,6 +106,17 @@ class WelcomeWindow(QWidget):
         self.specify.addWidget(self.baundrateBox, 4, 0, 1, 0)
         self.specify.addWidget(self.tendernessBox, 5, 0, 1, 0)
         self.setLayout(self.specify)
+    # ustawienie tekstu nagłówków
+
+    def _configText(self, text):
+        self.centralText = QLabel(
+            f"{text[0]}")
+        self.centralText.setWordWrap(True)
+        self.centralText.setFont(QFont('Times', text[1]))
+        self.centralText.setAlignment(
+            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+        return self.centralText
+    # automatyczne zmienianie wielkości tekstu pod wpływem zmiany wielkości okna
 
     def resizeText(self, event):
         defaultSize = 9
@@ -111,6 +126,7 @@ class WelcomeWindow(QWidget):
             f = QFont('', defaultSize)
         self.setFont(f)
 
+    # dodawanie nowych wartości do rozwijanych list
     def addModule(self, combo, pos, element, title, monit):
         name = Monit(self)
         name.message(f'{title}', f'{monit}')
@@ -120,6 +136,7 @@ class WelcomeWindow(QWidget):
             combo.new(gadget)
         else:
             pass
+    # przywrócenie domyślnych wartości rozwijanych list
 
     def resetDevices(self, param, position):
         self.files.defaultDevices(param, position)
@@ -133,8 +150,7 @@ class WelcomeWindow(QWidget):
         self.comboTenderness.clear()
         self.comboTenderness.update(self._new[param][position])
 
-    def jump(self):
-
+    def jump(self):  # metoda odpowiadająca za uruchomienie dwóch klas, SerialConnection oraz PlotAxes
         self.hide()
         self.files.setDefaulfValue(
             name="devices", position="default", element=self.comboDevices.default)
@@ -142,32 +158,17 @@ class WelcomeWindow(QWidget):
             name="baudrate", position="default", element=self.comboBaudrate.default)
         self.files.setDefaulfValue(
             name="tenderness", position="default", element=self.comboTenderness.default)
-        self.serial.showDevices()
-        self.signal.connect(self.serial.connect)
+
+        # połączenie do metody SerialConnection.connect()
+        self.signalSerial.connect(self.serial.connect)
         if self.dev["default"] and self.baud["default"] and self.tenderness["default"]:
-            # self.serial.showDevices()
-            # self.signal.connect(self.serial.connect)
 
-            self.signal.emit(self.comboDevices.default,
-                             self.comboBaudrate.default, '1')
-            # plotWindow = Plot_Window(
-            #     parent=self, serial=self.serial, pkg=self.pkg)
-
-            # plotWindow.showSecondWindow()
+            self.signalSerial.emit(self.comboDevices.default,
+                                   self.comboBaudrate.default, '1')  # emitowanie konfiguracji do połączenia z mikrokontrolerem
         else:
-
-            self.signal.emit(self.comboDevices.option,
-                             self.comboBaudrate.option, '1')
+            self.signalSerial.emit(self.comboDevices.option,
+                                   self.comboBaudrate.option, '1')
         plotWindow = Plot_Window(
             parent=self, serial=self.serial, pkg=self.pkg)
 
-        plotWindow.showSecondWindow()
-
-    def _configText(self, text):
-        self.centralText = QLabel(
-            f"{text[0]}")
-        self.centralText.setWordWrap(True)
-        self.centralText.setFont(QFont('Times', text[1]))
-        self.centralText.setAlignment(
-            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
-        return self.centralText
+        plotWindow.showSecondWindow()  # wyświetlenie okna PlotAxes

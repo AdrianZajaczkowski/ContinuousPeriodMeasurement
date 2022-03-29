@@ -1,6 +1,8 @@
 # class to setup view of errors prompt monit
 from libraries import *
 
+# klasa do wyświtlania monitów o długości pomiaru
+
 
 class TimePrompt(QDialog):
     def __init__(self, parent=None):

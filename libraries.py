@@ -29,3 +29,6 @@ import serial as sr
 import struct
 from subprocess import call
 from ctypes.wintypes import BYTE
+import logging
+logging.basicConfig(filename='myProgramLog.txt', level=logging.DEBUG,
+                    format='%(asctime)s - %(levelname)s - %(message)s')  # zapis logów do pliku, uwzględniając poziomy od Debug i wyżej, data/leve/wiadomosc

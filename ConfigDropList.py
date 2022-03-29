@@ -3,10 +3,11 @@ from libraries import *
 from SerialConnection import *
 
 
-class ConfigFiles:
-    def __init__(self):
-        super(ConfigFiles, self).__init__()
-        self.configPath = 'D:\MeansurePerioid\config.json'
+class ConfigDropList:
+    def __init__(self, **kwargs):
+        self.serial = kwargs.pop('serial')
+        super(ConfigDropList, self).__init__(**kwargs)
+        self.configPath = '..\MeansurePerioid\config.json'
 
     # metoda dodawania elementu do pliku configuracyjnego w zależności od listy
     def change(self, part, position, param):
@@ -31,22 +32,22 @@ class ConfigFiles:
 
     # reset mikrokontrolerów do pozycji domyslnych
     def defaultDevices(self, part, position):
-        self.old = ConfigFiles.showData(self)
+        self.old = self.showData()
 
         serialConnection = SerialConnection()
-        self._module = serialConnection.showDevices()
+        devices = serialConnection.showDevices()
 
-        self.old[part][position] = self._module
+        self.old[part][position] = devices
 
         with open(self.configPath, 'w') as devi:
             json.dump(self.old, devi, sort_keys=True, indent=4)
 
      # zmiana czułości do wartości domyslnych
     def defaultTenderss(self, part, position):
-        self.old = ConfigFiles.showData(self)
-        self._module = "1"
+        self.old = self.showData(self)
+        tenderss = "1"
 
-        self.old[part][position] = list(self._module)
+        self.old[part][position] = list(tenderss)
 
         with open(self.configPath, 'w') as devi:
             json.dump(self.old, devi, sort_keys=True, indent=4)

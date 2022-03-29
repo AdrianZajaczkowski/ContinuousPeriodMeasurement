@@ -1,5 +1,6 @@
-# class to setup view of errors prompt monit
 from libraries import *
+
+# klasa od wyświetlania komunikatów o błędzie
 
 
 class Errors(QDialog):

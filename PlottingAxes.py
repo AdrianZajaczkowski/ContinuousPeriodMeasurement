@@ -1,13 +1,11 @@
-# class to plot data
+# klasa do analizy,zapisu i wyświetlania danych
 from sqlite3 import Time
 from serial.win32 import EV_CTS
-from SerialConnection import *
 from libraries import *
 from ComboList import *
-from ConfigFiles import *
+from ConfigDropList import *
 from Errors import Errors
 from TimePrompt import TimePrompt
-
 
 pg.setConfigOption('background', 'w')
 pg.setConfigOption('foreground', 'k')
@@ -17,11 +15,15 @@ class Plot_Window(QMainWindow):
     serialSignal = pyqtSignal(str, str)
     RawFileSignal = pyqtSignal()
     AnalyzedFileSignal = pyqtSignal(object, object)
+    logging.info("Plot init")
 
     def __init__(self, parent, **kwargs):
         self.pkg = kwargs.pop('pkg')
         self.serial = kwargs.pop('serial')
         self.timemeansure = self.pkg['meansurmentTime']
+        logging.info(f"Plot init {self.pkg}")
+        logging.info(f"Plot init {self.serial}")
+        logging.info(f"Plot init {self.timemeansure}")
         super(Plot_Window, self).__init__(parent, **kwargs)
         self.device = None
         self.baudrate = None
@@ -39,7 +41,7 @@ class Plot_Window(QMainWindow):
         self.timeList = []
         self.freqList = []
         self.prompt = TimePrompt(self)
-        self.files = ConfigFiles()
+        self.files = ConfigDropList(serial=self.serial)
         self.title_file, self.path, self.openedfile,  self.openedPath = '', '', '', ''
         self.exit = QAction("Exit Application",
                             triggered=lambda: self.exit_app)
@@ -107,7 +109,6 @@ class Plot_Window(QMainWindow):
         self.plotFile.clicked.connect(self.showAnalyzedData)
         self.plotPointsInChar = QPushButton('Pokaż punkty wykresu')
         self.plotPointsInChar.clicked.connect(self.plotPointer)
-        # TODO ogarnij rozdzielenie danych
 
     def showAnalyzedData(self):
         self.openAnalyzedFile()

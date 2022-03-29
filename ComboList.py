@@ -1,6 +1,6 @@
-# Class create to chooise elements from lists
-
 from libraries import *
+
+# klasa od interakcji z rozwijaną listą
 
 
 class ComboList(QComboBox):

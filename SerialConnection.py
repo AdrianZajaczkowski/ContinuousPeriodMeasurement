@@ -5,27 +5,27 @@ from libraries import *
 import re
 import pickle
 import bz2
+# klasa odpowiedzialna za nawiązanie komunikacji z mikrokontrolerem
 
 
 class SerialConnection(QObject):
-    finishSignal = pyqtSignal(str)
-    popUpSignal = pyqtSignal(str)
-    dataSignal = pyqtSignal(object, object)
-    errorSignal = pyqtSignal()
+    finishSignal = pyqtSignal(str)  # sygnał od zakończenia pomiaru
+    popUpSignal = pyqtSignal(str)   # sygnał od powiadomienia o pońcu pomiaru
+    errorSignal = pyqtSignal()      # sygnał od komunikatów błędu
 
     def __init__(self):
         super(SerialConnection, self).__init__()
         self.devicesList = []
         self.COM = ''
         self.baudrate = 0
-        self.connection = None
         self.ports = []
         self.storage = []
         self.lastValue = 0
         self.overflow = 0xFFFF
         self.ierrors = Errors()
-        self.timePopUp = None
         self.timer = QtCore.QTimer()
+        self.connection = None
+        self.timePopUp = None
         self.df_tmp, self.value = None, 1
         self.title = ''
         self.flag = ''
@@ -33,6 +33,7 @@ class SerialConnection(QObject):
         self.path = ''
         self.chooise = ''
 
+    # wyświetlenie podpiętych mikrokontrolerów
     def showDevices(self):
         self.ports = list(serial.tools.list_ports.comports())
         try:
@@ -46,9 +47,7 @@ class SerialConnection(QObject):
                 self.ierrors.close()
                 self.endConnection()
 
-    def monit(self, popupObj):
-        self.timePopUp = popupObj
-
+    # konfigurowanie połączenia na podstawie parametrów
     def connect(self, device, baudrate, tenderness):
         try:
             if isinstance(tenderness, str):
@@ -71,7 +70,7 @@ class SerialConnection(QObject):
                            'Nxi': [device, self.connection.port, self.connection.baudrate, tenderness], }
             self.connection.close()
             self.connection.open()
-            
+
         except ValueError as value:
             value = "\n Niepoprawna wartość czułości. Wybierz ponownie. Jesli jest zmiennoprzecinkowa wykorzystaj kropkę \" . \" "
             self.ierrors.message('Błąd', value)
@@ -94,26 +93,16 @@ class SerialConnection(QObject):
                 self.endConnection()
                 self.errorSignal.emit()
 
-    def rescan(self):
+    def rescan(self):  # metoda od poprawnego zakończenia połączenia po sprawdzeniu portów
         time.sleep(3)
         call(["devcon.exe", "rescan"])
 
-    # def calc_checksum(self, data):
-    #     calculated_checksum = 0
-    #     for byte in data:
-    #         calculated_checksum ^= byte
-    #     return calculated_checksum
-
-    def writers(self, dictionaryList):
+    def writers(self, dictionaryList):  # zapis danych w słowniku
         df_final = pd.DataFrame.from_dict(dictionaryList)
         self.compressed_pickle(df_final, True)
-        # with open(f'{self.path}RAW {self.title}.csv', 'a+', newline="") as fd:
-        #     writer = csv.writer(fd, delimiter=';', quoting=csv.QUOTE_NONE)
-        #     writer.writerow(row)
 
+    # metoda od zapisu danych do pliku pickle w konfiguracji nagłówek+dane
     def compressed_pickle(self, df_data, flag):
-
-        # Path(self.path+title_file)
         if flag:
             new_df = self.df_tmp.append(df_data, ignore_index=True)
             f = bz2.BZ2File(Path(f'{self.path}RAW {self.title}.pbz2'), 'wb')
@@ -123,24 +112,23 @@ class SerialConnection(QObject):
             self.df_tmp = df_data
 
     def createPickleFile(self):    # metoda do stworzenia określonego pliku csv
-        self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
+        self.path = r'..\\MeansurePerioid\\wyniki pomiarów\\'
         if not Path(f'{self.path}RAW {self.title}.pbz2').is_file():
             headers = ["timestamp", "Nxi"]
             sf = pd.DataFrame(self.config, columns=headers)
             self.compressed_pickle(sf, False)
-            # sf.to_csv(Path(self.path+title_file), encoding='utf-8-sig',
-            #           index=False, sep=';', header=headers,)
 
-    def validTime(self, amountOfSeconds):
+    def validTime(self, amountOfSeconds):  # metoda od odliczania czasu pomiaru
         time.sleep(amountOfSeconds)
         self.flag = False
 
+    # wyliczenie czasu pomiaru na podstawie wybranego argumentu czasu w sekundach
     def meansureRange(self, chooise, filename):
         self.title = filename
         self.chooise = chooise
-        self.popUpSignal.emit(chooise)
+        self.popUpSignal.emit(chooise)  # powiadomienie o początku pomiaru
         self.createPickleFile()
-        time.sleep(0.5)
+        time.sleep(0.5)  # opóźnienie aby poprawnie stworzyć plik
         listOfTime = re.split(r'(\D+)', chooise)
         if listOfTime[1].strip() == 's':
             self.readValue(int(listOfTime[0]))
@@ -150,10 +138,9 @@ class SerialConnection(QObject):
             self.readValue(int(listOfTime[0])*3600)
         self.finishSignal.emit(chooise)
 
-    def readValue(self, timeOfExecution):
+    def readValue(self, timeOfExecution):  # odczyt danych z mikrokontrolera
         dictionary_serial = {'timestamp': None,
                              'Nxi': None}
-
         self.flag = True
         thread1 = threading.Thread(
             target=self.validTime, args=(timeOfExecution,))
@@ -174,10 +161,6 @@ class SerialConnection(QObject):
                 self.storage.append(dictionary_serial)
                 self.lastValue = Ni
             self.writers(self.storage)
-            # time.sleep(1)
-            # self.timePopUp.message(msg='Koniec Pomiaru')
-            # if self.timePopUp.exec():
-            #     pass
 
         except serial.SerialException as e:
             msg = 'Błąd portu USB. Sprawdź połączenie i zacznij pomiary ponownie'
@@ -205,15 +188,7 @@ class SerialConnection(QObject):
                 self.ierrors.close()
                 self.endConnection()
 
-    def reconnect(self):
-        if self.connection.isOpen():
-            self.connection.close()
-            # self.connection.port = f'{self.COM}'
-            # self.connection.baudrate = self.baudrate
-            # self.connection.timeout = None
-            self.connection.open()
-
-    def endConnection(self):
+    def endConnection(self):  # zamknięcie połączenia
         time.sleep(1)
         self.connection.flushOutput()
         time.sleep(1)
