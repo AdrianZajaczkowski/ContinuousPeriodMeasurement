@@ -3,12 +3,12 @@ from ConfigDropList import *
 from ComboList import *
 from Monit import *
 from PlottingAxes import *
-
+from SerialConnection import *
 # Klasa odpowiedzialna za wprowadzenie ustawień startowych do pragoramu
 
 
 class WelcomeWindow(QWidget):
-    # sygnał odpowiadający za przekazanie parametrów do metody SerialConnection.connect()
+    logging.info("Start App")
     # sygnał odpowiadający za przekazanie parametrów do metody SerialConnection.connect()
     signalSerial = pyqtSignal(str, str, str)
 

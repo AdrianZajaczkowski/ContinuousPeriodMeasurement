@@ -3,8 +3,7 @@ from Errors import Errors
 from TimePrompt import TimePrompt
 from libraries import *
 import re
-import pickle
-import bz2
+
 # klasa odpowiedzialna za nawiązanie komunikacji z mikrokontrolerem
 
 
@@ -98,6 +97,7 @@ class SerialConnection(QObject):
         call(["devcon.exe", "rescan"])
 
     def writers(self, dictionaryList):  # zapis danych w słowniku
+        logging.debug(f'file: create part2. Data=get')
         df_final = pd.DataFrame.from_dict(dictionaryList)
         self.compressed_pickle(df_final, True)
 
@@ -107,6 +107,7 @@ class SerialConnection(QObject):
             new_df = self.df_tmp.append(df_data, ignore_index=True)
             f = bz2.BZ2File(Path(f'{self.path}RAW {self.title}.pbz2'), 'wb')
             pickle.dump(new_df, f)
+            logging.debug(f'file: done')
             f.close()
         else:
             self.df_tmp = df_data
@@ -120,14 +121,17 @@ class SerialConnection(QObject):
 
     def validTime(self, amountOfSeconds):  # metoda od odliczania czasu pomiaru
         time.sleep(amountOfSeconds)
+        logging.debug(f'readData: stop with {amountOfSeconds}s')
         self.flag = False
 
     # wyliczenie czasu pomiaru na podstawie wybranego argumentu czasu w sekundach
     def meansureRange(self, chooise, filename):
+        logging.debug(f'meansure: set time')
         self.title = filename
         self.chooise = chooise
         self.popUpSignal.emit(chooise)  # powiadomienie o początku pomiaru
         self.createPickleFile()
+        logging.debug(f'file: create part1')
         time.sleep(0.5)  # opóźnienie aby poprawnie stworzyć plik
         listOfTime = re.split(r'(\D+)', chooise)
         if listOfTime[1].strip() == 's':
@@ -137,8 +141,10 @@ class SerialConnection(QObject):
         if listOfTime[1].strip() == 'h':
             self.readValue(int(listOfTime[0])*3600)
         self.finishSignal.emit(chooise)
+        logging.debug(f'readData: end')
 
     def readValue(self, timeOfExecution):  # odczyt danych z mikrokontrolera
+        logging.debug(f'readData: start {timeOfExecution}')
         dictionary_serial = {'timestamp': None,
                              'Nxi': None}
         self.flag = True

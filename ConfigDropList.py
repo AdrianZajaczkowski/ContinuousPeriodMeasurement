@@ -1,6 +1,6 @@
 # Class to reate litsts of elements
 from libraries import *
-from SerialConnection import *
+# klasa do interakcji z rozwijanymi listami
 
 
 class ConfigDropList:
@@ -23,8 +23,8 @@ class ConfigDropList:
         data[name][position] = element
         with open(self.configPath, 'w') as devi:
             json.dump(data, devi, indent=4)
-    # metoda zwracajaca wszystko z pliku configuracyjnego
 
+    # metoda zwracajaca wszystko z pliku configuracyjnego
     def showData(self):
         with open(self.configPath, 'r') as fp:
             data = json.load(fp)
@@ -33,9 +33,7 @@ class ConfigDropList:
     # reset mikrokontrolerów do pozycji domyslnych
     def defaultDevices(self, part, position):
         self.old = self.showData()
-
-        serialConnection = SerialConnection()
-        devices = serialConnection.showDevices()
+        devices = self.serial.showDevices()
 
         self.old[part][position] = devices
 
