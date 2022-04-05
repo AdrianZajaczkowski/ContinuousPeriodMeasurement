@@ -164,7 +164,7 @@ class SerialConnection(QObject):
                     valueDifference += self.overflow
                 dictionary_serial['timestamp'] = timeNow
                 dictionary_serial['Nxi'] = valueDifference
-                self.storage.append(dictionary_serial)
+                self.storage.append(dictionary_serial.copy())
                 self.lastValue = Ni
             self.writers(self.storage)
 

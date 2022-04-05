@@ -1,12 +1,13 @@
 # Class to reate litsts of elements
 from libraries import *
+from SerialConnection import *
 # klasa do interakcji z rozwijanymi listami
 
 
 class ConfigDropList:
-    def __init__(self, **kwargs):
-        self.serial = kwargs.pop('serial')
-        super(ConfigDropList, self).__init__(**kwargs)
+    def __init__(self):
+        # self.serial = kwargs.pop('serial')
+        super(ConfigDropList, self).__init__()
         self.configPath = '..\MeansurePerioid\config.json'
 
     # metoda dodawania elementu do pliku configuracyjnego w zależności od listy
@@ -33,7 +34,8 @@ class ConfigDropList:
     # reset mikrokontrolerów do pozycji domyslnych
     def defaultDevices(self, part, position):
         self.old = self.showData()
-        devices = self.serial.showDevices()
+        serialConnection = SerialConnection()
+        devices = serialConnection.showDevices()
 
         self.old[part][position] = devices
 
@@ -42,7 +44,7 @@ class ConfigDropList:
 
      # zmiana czułości do wartości domyslnych
     def defaultTenderss(self, part, position):
-        self.old = self.showData(self)
+        self.old = self.showData()
         tenderss = "1"
 
         self.old[part][position] = list(tenderss)

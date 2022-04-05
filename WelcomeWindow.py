@@ -19,7 +19,7 @@ class WelcomeWindow(QWidget):
         self.default = False
         super(WelcomeWindow, self).__init__(parent)
         self.serial = SerialConnection()
-        self.files = ConfigDropList(serial=self.serial)
+        self.files = ConfigDropList()
         self.setWindowTitle("Python 3.9.7")
         self.serial.showDevices()  # wykrycie podłaczonych mikrokontrolerów
         self._configLayout()

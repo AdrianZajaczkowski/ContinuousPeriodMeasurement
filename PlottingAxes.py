@@ -13,7 +13,8 @@ pg.setConfigOption('foreground', 'k')
 class Plot_Window(QMainWindow):
     serialSignal = pyqtSignal(str, str)
     RawFileSignal = pyqtSignal()
-    AnalyzedFileSignal = pyqtSignal(object, object)
+    # AnalyzedFileSignal = pyqtSignal(object, object)
+    AnalyzedFileSignal = pyqtSignal(object)
 
     def __init__(self, parent, **kwargs):
         self.pkg = kwargs.pop('pkg')
@@ -36,10 +37,9 @@ class Plot_Window(QMainWindow):
         self.full = False
         self.F_CPU = 16000000
         self.PlotCount = 1
-        self.timeList = []
-        self.freqList = []
+        self.timeList, self.freqList, self.xdata, self.ydata = [], [], [], []
         self.prompt = TimePrompt(self)
-        self.files = ConfigDropList(serial=self.serial)
+        self.files = ConfigDropList()
         self.title_file, self.path, self.openedfile,  self.openedPath = '', '', '', ''
 
         self.curentMeansureTime = None
@@ -115,12 +115,21 @@ class Plot_Window(QMainWindow):
 
     def showAnalyzedData(self):
         self.openAnalyzedFile()
+        self.configChart()
+        logging.info(f'Prepare to plot:')
         self.AnalyzedFileSignal.connect(self.analyzedPlot)
 
-    def analyzedPlot(self, time, freq):
+    def analyzedPlot(self, coordinates):
         logging.debug(f'visualization: start ')
-        self.showPlot(time, freq)
+        pairs = (pair for pair in coordinates)
+        updateThread = threading.Thread(target=self.updatePlot, args=(pairs,))
+        updateThread.start()
         self.timeList, self.freqList = [], []
+        self.xdata, self.ydata = [], []
+
+    def updatePlot(self, pair):  # metoda do dodawania nowych wartości do wykresu
+        for i in pair:
+            self.showPlot(pair)
 
     def startMeanurments(self):
         logging.debug(f'get data: start')
@@ -165,17 +174,10 @@ class Plot_Window(QMainWindow):
         if self.prompt.show():
             self.prompt.layout.removeWidget()
 
-    def showPlot(self, x, y):   # metoda do dodania kolejnego wykresu pod aktualnym pomiarem
-        logging.debug(f'visualization: set coordinates ')
+    def configChart(self):  # metoda do konfiguracji wyglądu wykresu
         logging.debug(
-            f'visualization: len of coordinates:  x len:{len(x)}, y len:{len(y)} ')
-        if self.PlotCount == 2:
-            logging.debug(
-                f'visualization: full of space for charts')
-            self.full = True
-        if not self.full:
-            logging.debug(
-                f'visualization: new chart ')
+            f'visualization: configuration of new chart ')
+        if self.PlotCount < 2:
             self.plots = self.chart.addPlot(row=0, col=0,
                                             title=f"<b><p style=\"color: black\">{self.title_file}</p></b><")
             self.plotLine = self.plots.plot(pen=pg.mkPen('r', width=2))
@@ -189,15 +191,36 @@ class Plot_Window(QMainWindow):
             self.plots.getAxis("bottom").setStyle(tickTextOffset=20)
             self.plots.getAxis("left").setTickFont(self.GridFont)
             self.plots.getAxis("left").setStyle(tickTextOffset=20)
-            self.plotLine.setData(x, y)
-            self.PlotCount += 1
+            # self.plots.setXRange(0,1000)
         else:
             self.chart.removeItem(self.plots)
-            self.full = False
             self.PlotCount = 1
-            logging.debug(
-                f'visualization: delete previous chart, set new chart ')
-            self.showPlot(x, y)
+            self.configChart()
+
+    def showPlot(self, cords):   # metoda do wyświetlenia danych z pliku
+        logging.debug(f'visualization: set coordinates from {cords}')
+        xList, yList = [], []
+        pair = next(cords)
+        x = pair[0]
+        y = pair[1]
+        self.xdata.append(x)
+        # xList.append(x)
+        # yList.append(y)
+        self.ydata.append(y)
+        # if len(self.xdata) > 200:
+        #     self.xdata.pop(0)
+        # if len(self.ydata) > 200:
+        #     self.ydata.pop(0)
+
+        logging.debug(f'visualization: set coordinates from {pair}')
+        logging.debug(f'visualization: set coordinates ')
+        logging.debug(
+            f'visualization: len of coordinates:  x len:{x} {type(x)}, y len:{y} {type(y)} ')
+
+        logging.debug(
+            f'visualization: new chart ')
+        self.plotLine.setData(self.xdata, self.ydata)
+        self.PlotCount += 1
 
     def plotPointer(self):
         if self.changeSecond:
@@ -213,21 +236,23 @@ class Plot_Window(QMainWindow):
         logging.info(f'analyzeThread: start')
         logging.debug(f'analyze raw file: start ')
         t = 0
+        i = 0
         calculated_list = []
         calculated_dictionary = {'Nxi': {},
                                  'Txi': {},
+                                 'fxi': {},
                                  'Xxi': {},
                                  't': {},
-                                 'fxi': {},
                                  'Błąd kwantowania (Nx+1)': {},
                                  'Błąd bezwzględny': {},
                                  'Błąd względny δ': {},
                                  'Błąd względny δ%': {},
                                  }
+        logging.debug(f'sheet object {sheet}')
+        for nx in sheet:
+            i += 1
 
-        for i in range(len(sheet)):
-
-            Nxi = int(sheet[i])
+            Nxi = float(nx)
             Txi = Nxi*(1/self.F_CPU)
             Tx1 = (Nxi+1)*(1/self.F_CPU)
             fxi = 1/Txi
@@ -247,6 +272,7 @@ class Plot_Window(QMainWindow):
             calculated_dictionary['Błąd względny δ%'] = proc_wzg
 
             calculated_list.append(calculated_dictionary.copy())
+        logging.debug(f'analyze raw file: size {i} ')
         logging.debug(f'analyze raw file: end ')
         self.addToPickle(calculated_list, True)
 
@@ -260,40 +286,19 @@ class Plot_Window(QMainWindow):
             logging.debug(f'create new folder:{final_directory}')
             os.makedirs(final_directory)
 
-    # def createCsv(self):    # Note metoda do stworzenia określonego pliku csv
-    #     logging.debug(f'create csv file: start')
-    #     config = {"time": ["platforma:", "Baudrate:", "Czułość przetwornika"],
-    #               "Nxi": [self.device, self.baudrate, self.tenderness]}
-
-    #     self.title_file = f"pomiar z {self.curentMeansure}.csv"
-    #     self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
-    #     if not Path(self.path+self.title_file).is_file():
-    #         headers = ["Nxi", "Txi", "Xxi", "t", "fxi",
-    #                    " Błąd kwantowania (Nx+1)", "Błąd bezwzględny", "Błąd względny δ", "Błąd względny δ%"]
-    #         sf = pd.DataFrame(config, columns=headers)
-    #         sf.to_csv(Path(self.path+self.title_file), encoding='utf-8-sig',
-    #                   index=False, sep=';', header=headers,)
-    #         logging.debug(f'create csv file: created {self.title_file}')
-    #         logging.debug(f'create csv file: done')
-
-    # def updateCsv(self, row):     # metoda do aktualizowania pliku csv
-    #     logging.debug(f'update csv file: start')
-    #     with open(f'{self.path+self.title_file}', 'a+', newline='') as file:
-    #         writer = csv.writer(file, delimiter=';', quoting=csv.QUOTE_NONE)
-    #         writer.writerow(row)
-    #         file.close()
-    #         logging.debug(f'update csv file: done')
-
     def addToPickle(self, df_data, flag):
         if flag:
             logging.debug(
                 f'pickle file: append sheet to header {self.path}{self.title_file}.pbz2 ')
             self.df_tmp = self.df_tmp.append(df_data, ignore_index=True)
+            logging.debug(
+                f'pickle file:  {self.df_tmp} ')
             f = bz2.BZ2File(Path(f'{self.path}{self.title_file}.pbz2'), 'wb')
+
             pickle.dump(self.df_tmp, f)
             f.close()
         else:
-            logging.debug(f'pickle file: hold headers ')
+            logging.debug(f'pickle file: hold headers {df_data} ')
             self.df_tmp = df_data
 
     # metoda do stworzenia określonego pliku csv
@@ -306,8 +311,8 @@ class Plot_Window(QMainWindow):
             title = self.fileMeansureTime
         config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
                   "Txi": [self.device, self.baudrate, self.tenderness]}
-        headers = ["Nxi", "Txi", "Xxi", "t", "fxi",
-                   " Błąd kwantowania (Nx+1)", "Błąd bezwzględny", "Błąd względny δ", "Błąd względny δ%"]
+        headers = ["Nxi", "Txi", "fxi", "t", "Xxi",
+                   "Błąd kwantowania (Nx+1)", "Błąd bezwzględny", "Błąd względny δ", "Błąd względny δ%"]
         self.title_file = f"pomiar z {title}"
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
         if not Path(f'{self.path}{self.title_file}.pbz2').is_file():
@@ -355,12 +360,15 @@ class Plot_Window(QMainWindow):
         freqListtmp = self.pickleSheet['Xxi'][7:]
         self.timeList = list(map(float, timeListtmp))
         self.freqList = list(map(float, freqListtmp))
+        zippedDataPairs = zip(self.timeList, self.freqList)
         logging.debug(f'read existed file: done ')
-        self.AnalyzedFileSignal.emit(self.timeList, self.freqList)
+        self.AnalyzedFileSignal.emit(zippedDataPairs)
+        # self.AnalyzedFileSignal.emit(self.timeList, self.freqList)
         logging.debug(
             f'analyze threading: done ')
         self.convertToCsvButton.setEnabled(True)
 
+    # Note add threading - app crashed if is large file to convert to csv
     def convertPickleToCsv(self):
         if len(self.pickleSheet):
             logging.debug('convert to CSV')
@@ -399,6 +407,7 @@ class Plot_Window(QMainWindow):
         # new_title = f'{filenameList[-2]} {timePartOfList[0]}'
 
         sheet = list(data['Nxi'][7:])
+        logging.info(f'length of sheet {len(sheet)}')
         self.device = data['Nxi'][0]
         self.baudrate = data['Nxi'][2]
         self.tenderness = float(data['Nxi'][3])
@@ -412,9 +421,9 @@ class Plot_Window(QMainWindow):
         if fileState:
             logging.debug(
                 f'read raw file: done')
-            return sheet
+            yield from sheet
         else:
-            logging.warning()(
+            logging.warning(
                 f'read raw file: cant read file, file exist')
             return False
 
