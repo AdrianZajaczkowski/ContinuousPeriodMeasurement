@@ -4,13 +4,14 @@ from serial.win32 import EV_CTS
 from libraries import *
 from ComboList import *
 from ConfigDropList import *
+from Monit import *
 from Errors import Errors
 from TimePrompt import TimePrompt
-pg.setConfigOption('background', 'w')
+pg.setConfigOption('background', '#F0FFF0')
 pg.setConfigOption('foreground', 'k')
 
 
-class Plot_Window(QMainWindow):
+class PlotWindow(QMainWindow):
     # serialSignal = pyqtSignal(str, str) # sygnał wykorzystywany pomiędzy klasą SerialConnection a obecna klasą
     # sygnał odpowiedzialny za powiadomienie o nowych przanalizowanych danych
     RawFileSignal = pyqtSignal()
@@ -22,12 +23,12 @@ class Plot_Window(QMainWindow):
         self.timemeansure = self.pkg['meansurmentTime']
         logging.info(
             f"init package: {self.pkg},serial:{self.serial},timemeansure:{self.timemeansure}")
-        super(Plot_Window, self).__init__(parent, **kwargs)
+        super(PlotWindow, self).__init__(parent, **kwargs)
         self.device = None
         self.baudrate = None
         self.tenderness = None
+        self._meansureTime = "meansurmentTime"
         self.currentDay = None
-        self.plots = None
         self.mainPlot = None
         self.WindowFont = None
         self.GridFont = None
@@ -50,11 +51,11 @@ class Plot_Window(QMainWindow):
         self._config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
                         "Txi": [self.device, self.baudrate, self.tenderness]}
         self.setWindowTitle("Python 3.9.7")
-        self.serial.errorSignal.connect(self.wrongConfig)
         self.uiSet()
 
     def closeConnection(self):
         self.serial.endConnection()
+    # NOTE przeniesiono
 
     def currentDataMeansure(self):  # generowanie aktualnej daty
         self.currentDay = datetime.now()
@@ -83,15 +84,17 @@ class Plot_Window(QMainWindow):
         self.chart = pg.GraphicsLayoutWidget(show=True)
 
         self.widget.setLayout(self.grid)
-        self.grid.addWidget(self.startCatchData, 0, 0)
-        self.grid.addWidget(self.analyzeFile, 1, 0)
-        self.grid.addWidget(self.plotFile, 2, 0)
-        self.grid.addWidget(self.convertToCsvButton, 3, 0)
-        self.grid.addWidget(self.plotPointsInChar, 4, 0)
-        self.grid.addWidget(self.chart, 0, 1, 13, 4)
-        self.timeButtons.addWidget(self.setTimeMeansure, 0, 0)
+        self.timeButtons.addWidget(self.addNewMeansureTime, 1, 0)
+        self.timeButtons.addWidget(self.resetNewMeansureTime, 1, 1)
+        self.timeButtons.addWidget(self.comboTimeMeansure, 2, 0, 1, 0)
         self.timeBox.setLayout(self.timeButtons)
-        self.grid.addWidget(self.timeBox, 5, 0)
+        self.grid.addWidget(self.timeBox, 0, 0)
+        self.grid.addWidget(self.startCatchData, 1, 0)
+        self.grid.addWidget(self.analyzeFile, 2, 0)
+        self.grid.addWidget(self.plotFile, 3, 0)
+        self.grid.addWidget(self.convertToCsvButton, 4, 0)
+        self.grid.addWidget(self.plotPointsInChar, 5, 0)
+        self.grid.addWidget(self.chart, 0, 1, 13, 4)
         self.setCentralWidget(self.widget)
         logging.info(f'uiset: done')
 
@@ -99,43 +102,52 @@ class Plot_Window(QMainWindow):
         self.showMaximized()
 
     def buttonsConfig(self):
-        self.setTimeMeansure = ComboList(
+        self.comboTimeMeansure = ComboList(
             self, option=self.timemeansure["standard"], default=self.timemeansure["default"])
 
+        addTime = partial(self.files.addItem, self, self.comboTimeMeansure,
+                          self._meansureTime, "standard", 'Czas pomiaru', 'Wpisz nowy czas pomiaru, przykładowo 1 s /1 min /1 h')
+        resetTime = partial(self.files.resetList,
+                            self.comboTimeMeansure, self._meansureTime, "standard")
+
+        self.addNewMeansureTime = QPushButton('Dodaj nowy czas pomiaru', self)
+        self.resetNewMeansureTime = QPushButton(
+            'Resetuj czasy poimiaru', self)
+        self.addNewMeansureTime.clicked.connect(addTime)
+        self.resetNewMeansureTime.clicked.connect(resetTime)
         self.startCatchData = QPushButton('Rozpocznij pobieranie danych')
         self.startCatchData.clicked.connect(self.startMeanurments)
         self.analyzeFile = QPushButton('Analizuj dane')
         self.analyzeFile.clicked.connect(self.openRawFile)
         self.plotFile = QPushButton('Wyświetl dane')
         self.plotFile.clicked.connect(self.showAnalyzedData)
-        self.convertToCsvButton = QPushButton('Konvertuj aktualny plik do CSV')
+        self.convertToCsvButton = QPushButton('Konwertuj plik do CSV')
         self.convertToCsvButton.clicked.connect(self.startConvertingToCsv)
         self.plotPointsInChar = QPushButton('Pokaż punkty wykresu')
         self.plotPointsInChar.clicked.connect(self.plotPointer)
-        self.convertToCsvButton.setEnabled(False)
+        if self.serial.meansureButtonState:
+            pass
+        else:
+            self.startCatchData.setEnabled(False)
+            logging.warning(
+                ' class get wrong params, capture data unavailable!')
 
     def showAnalyzedData(self):
-        # okienko powiadomienia
         self.openAnalyzedFile()
-        # if self.timer.isActive():
-        #     logging.info(f'stop timer {self.timer}')
-        #     self.timer.stop()
         logging.info(f'Prepare to plot:')
         self.AnalyzedFileSignal.connect(self.analyzedPlot)
 
     def analyzedPlot(self):
         self.prompt.close()
         logging.debug(f'visualization: start ')
-        pairsGenerator = (pair for pair in self.pairs)
+        # zmniejszenie zasobów pamięciu dzięki generatorowi
+        self.pairsGenerator = (pair for pair in self.pairs)
         self.configChart()  # metoda konfigurująca dany wykres
         self.countPlot()  # metoda zliczająca ile jest aktualnie wyświetlonych wykresów
-        updateThread = threading.Thread(
-            target=self.update, args=(pairsGenerator,))
-        updateThread.daemon = True  # wątek zakończy działanie po zamknięciu głównego programu
-        updateThread.start()
+        self.update()
         logging.debug(f'visualization: timer start {self.timer} ')
         logging.debug(f'visualization: set coordinates from ')
-        self.timeList, self.freqList = [], []
+        # self.timeList, self.freqList = [], []
         self.xdata, self.ydata = [], []
 
     def countPlot(self):  # metoda do dodawania nowych wartości do wykresu
@@ -151,14 +163,14 @@ class Plot_Window(QMainWindow):
         self.currentDataMeansure()
         logging.debug(f'get data: set time')
         self.files.setDefaulfValue(
-            name="meansurmentTime", position="default", element=self.setTimeMeansure.default)
+            name="meansurmentTime", position="default", element=self.comboTimeMeansure.default)
 
         if self.timemeansure["default"]:
             meansureThread = threading.Thread(
-                target=self.serial.meansureRange, args=(self.setTimeMeansure.default, self.curentMeansureTime,))  # dane muszą zostać pobrane z wykorzystaniem wątka, inaczej program przestanie odpowiadać
+                target=self.serial.meansureRange, args=(self.comboTimeMeansure.default, self.curentMeansureTime,))  # dane muszą zostać pobrane z wykorzystaniem wątka, inaczej program przestanie odpowiadać
         else:
             meansureThread = threading.Thread(
-                target=self.serial.meansureRange, args=(self.setTimeMeansure.option, self.curentMeansureTime,))
+                target=self.serial.meansureRange, args=(self.comboTimeMeansure.option, self.curentMeansureTime,))
         logging.debug(f'meansure thread: set {meansureThread}')
         self.serial.popUpSignal.connect(self.popUpTime)
         self.serial.finishSignal.connect(self.buttonState)
@@ -174,11 +186,6 @@ class Plot_Window(QMainWindow):
         self.startCatchData.setText('Rozpocznij pobieranie danych')
         self.startCatchData.setEnabled(True)
 
-    def wrongConfig(self):
-        logging.warning(
-            ' class get wrong params, capture data unavailable!')
-        self.startCatchData.setEnabled(False)
-
     def popUpTime(self, timeDesc):
         logging.info(
             f' pop-up message about meansure time:{timeDesc}')
@@ -187,46 +194,39 @@ class Plot_Window(QMainWindow):
         if self.prompt.show():
             self.prompt.layout.removeWidget()
 
+    def plotConfiguration(self):
+        self.plots = self.chart.addPlot(row=0, col=0,
+                                        title=f"<b><p style=\"color: black\">{self.title_file}</p></b><")
+
+        self.plotLine = self.plots.plot(
+            [], pen=pg.mkPen('#FF4500', width=0.9), connected='pairs')
+
+        self.plots.showGrid(x=True, y=True, alpha=0.5)
+        labels = {'color': 'w',
+                  'font-size': f'{self.GridFont.pixelSize()}px'}
+        self.plots.setLabel('left', 'Frequency',
+                            units='Hz', **labels)
+        self.plots.setLabel('bottom', 'Time', units='s', **labels)
+        self.plots.getAxis("bottom").setTickFont(self.GridFont)
+        self.plots.getAxis("bottom").setStyle(tickTextOffset=20)
+        self.plots.getAxis("left").setTickFont(self.GridFont)
+        self.plots.getAxis("left").setStyle(tickTextOffset=20)
+
     def configChart(self):  # metoda do konfiguracji wyglądu wykresu
         logging.debug(
             f'visualization: configuration of new chart ')
         if self.PlotCount < 2:
-            self.plots = self.chart.addPlot(row=0, col=0,
-                                            title=f"<b><p style=\"color: black\">{self.title_file}</p></b><")
-            self.plotLine = self.plots.plot(pen=pg.mkPen('r', width=2))
-            self.plots.showGrid(x=True, y=True, alpha=1)
-            labels = {'color': 'w',
-                      'font-size': f'{self.GridFont.pixelSize()}px'}
-            self.plots.setLabel('left', 'Frequency',
-                                units='Hz', **labels)
-            self.plots.setLabel('bottom', 'Time', units='s', **labels)
-            self.plots.getAxis("bottom").setTickFont(self.GridFont)
-            self.plots.getAxis("bottom").setStyle(tickTextOffset=20)
-            self.plots.getAxis("left").setTickFont(self.GridFont)
-            self.plots.getAxis("left").setStyle(tickTextOffset=20)
+            self.plotConfiguration()
         else:
             self.chart.removeItem(self.plots)
             self.PlotCount = 1
-            self.configChart()
+            self.plotConfiguration()
 
-    def update(self, generator):
-        # wypakowywanie kolejnych par (x,y) z generatora. Generator usprawnia analizowanie dużysz zbiorów danych
-        for pair in generator:
-            self.updatePlot(pair)
-
-    def updatePlot(self, coordinates):   # metoda do wyświetlenia danych z pliku
-        (x, y) = coordinates  # rozpakowanie pary liczb i przypisanie do x,y
-        # note https://stackoverflow.com/questions/46488204/fast-real-time-plotting-of-points-using-pyqtgraph-and-a-lidar/46493563#46493563
-        self.xdata.append(x)  # lista danych do wyświetlenia
-        self.ydata.append(y)
-        # rysowanie linni na podstawie list coordynatów x,y
-        # self.plotLine.setData(self.xdata, self.ydata)
-
-        if len(self.xdata) > 5000:  # a może okienko do doawania zakresu wyświetlania ?
-            self.xdata.pop(0)
-        if len(self.ydata) > 5000:
-            self.ydata.pop(0)
-        self.plotLine.setData(self.xdata, self.ydata)
+    def update(self):
+        logging.debug(f"{len(self.timeList)},{len(self.freqList)}")
+        setDataThread = threading.Thread(
+            target=self.plotLine.setData, args=(self.timeList, self.freqList,), daemon=True)
+        setDataThread.start()
 
     def plotPointer(self):
         if self.changeSecond:
@@ -237,7 +237,7 @@ class Plot_Window(QMainWindow):
             self.plotPointsInChar.setText("Pokaż punkty wykresu")
             self.plotLine.setSymbol(None)
             self.changeSecond = True
-
+    # note przeniesiono
     def analyzeDataFromFile(self, sheet):  # Metoda do wizualizacji danych
         # note może być wartość 0, uwzględnij to
         logging.info(f'analyzeThread: start')
@@ -338,34 +338,53 @@ class Plot_Window(QMainWindow):
                 f'pickle file created before:{self.path}{self.title_file}.pbz2 ')
             return False
 
-    def openAnalyzedFile(self):
-        logging.info(f'read existed file: start ')
-        file = QDir.currentPath()
+    def openFile(self, filetype):
+        filterList = []
+        typeOfFiles = {
+            'all': 'All (*)',
+            'csvfile': 'CSV file (*.csv)',
+            'csvFileA': 'Analyzed CSV file (pomiar*.csv)',
+            'pickleFileRaw': 'Raw Pickle files (RAW*.pbz2)',
+            'pickleFileA': 'Analyzed Pickle files (pomiar*.pbz2)',
+            'pickleFile': 'Pickle files (*.pbz2)'
+        }
+        for types in filetype:
+            if typeOfFiles.get(types):
+                filterList.append(typeOfFiles[types])
+        file = f'{QDir.currentPath()}/wyniki pomiarów'
         dialog = QFileDialog(self)
         dialog.setWindowTitle('File')
         dialog.setNameFilters(
-            ['Pickle files (*.pbz2)'])
+            filterList)
         dialog.setDirectory(file)
         dialog.setFileMode(QFileDialog.ExistingFile)
-
         if dialog.exec_() == QDialog.Accepted:
             self.openedfile = dialog.selectedFiles()
             logging.debug(f'file: {self.openedfile}')
-            if self.openedfile:
-                logging.info(
-                    f'read existed file: selected file {self.openedfile[0]} ')
-                self.openedPath = str(self.openedfile[0])
-                self.title_file = self.openedPath
-                logging.debug(
-                    f'analyze threading: set ')
-                analyzeThreading = threading.Thread(
-                    target=self.readAnalyzedFile, args=(self.openedPath,))
-                analyzeThreading.start()
-                self.prompt.message(
-                    msg=f'Trwa wczytywanie zestawu danych z pliku {self.openedPath}. Proszę czekać!')
-                if self.prompt.show():
-                    self.prompt.layout.removeWidget()
+        else:
+            self.openedfile = None
 
+    def openAnalyzedFile(self):
+        logging.info(f'read existed file: start ')
+        self.openFile(['pickleFileA', 'csvfile'])
+
+        if self.openedfile:
+            logging.info(
+                f'read existed file: selected file {self.openedfile[0]} ')
+            self.openedPath = str(self.openedfile[0])
+            self.title_file = self.openedPath
+            logging.debug(
+                f'analyze threading: set ')
+            analyzeThreading = threading.Thread(
+                target=self.readAnalyzedFile, args=(self.openedPath,))
+            analyzeThreading.start()
+            self.prompt.message(
+                msg=f'Trwa wczytywanie zestawu danych z pliku {self.openedPath}. Proszę czekać!')
+            if self.prompt.show():
+                self.prompt.layout.removeWidget()
+        else:
+            pass
+    #NOTE przenieisono
     def readAnalyzedFile(self, filename):
         logging.debug(
             f'analyze threading: start ')
@@ -392,23 +411,42 @@ class Plot_Window(QMainWindow):
         self.convertToCsvButton.setEnabled(True)
 
     def startConvertingToCsv(self):  # wątek do konversji pliku z pickle do csv
+
+        self.convertToCsvButton.setEnabled(False)
+        self.openFile(['pickleFileA'])
+        self.convertToCsvButton.setText('Rozpoczęto konwersje do CSV')
         convertThread = threading.Thread(
             target=self.convertPickleToCsv).start()
         logging.debug(f'start thread: {convertThread} convert to CSV')
 
     def convertPickleToCsv(self):
-        if len(self.pickleSheet):
+
+        with bz2.BZ2File(str(self.openedfile[0]), 'rb') as pickleAnalyzedSheet:
+            pickleSheet = pickle.load(pickleAnalyzedSheet)
+        convertThread = threading.Thread(
+            target=self.csvconplete, args=(pickleSheet,)).start()
+
+    def csvconplete(self, pickleSheet):
+
+        if len(pickleSheet):
             logging.debug('convert to CSV')
-            df_csv = pd.DataFrame(self.pickleSheet)
+            df_csv = pd.DataFrame(pickleSheet)
             logging.debug(f'convert to CSV: \n {df_csv}')
-            newTitleAndPath, _ = self.modifyFileName(self.openedPath)
-            logging.debug(f'convert to CSV path: {self.openedPath}')
+            newTitleAndPath, _ = self.modifyFileName(str(self.openedfile[0]))
+            logging.debug(f'convert to CSV path: {str(self.openedfile[0])}')
             logging.debug(f'convert to CSV new path: {newTitleAndPath}.csv')
             df_csv.to_csv(f'{newTitleAndPath}.csv')
+            logging.debug(f'convert to CSV new path: done')
             # self.prompt.message(
             #     msg=f'Plik zapisano jako {newTitleAndPath}.csv.')
-            self.convertToCsvButton.setEnabled(False)
-            self.pickleSheet = None  # clear memory
+            self.convertToCsvButton.setText('Plik zamieniono na format CSV')
+            # self.prompt.message(
+            #     msg=f'Utworzono plik {newTitleAndPath}.csv')
+            # if self.prompt.show():
+            #     self.prompt.layout.removeWidget()
+            pickleSheet = None  # clear memory
+            self.convertToCsvButton.setEnabled(True)
+            self.convertToCsvButton.setText('Konwertuj plik do CSV')
             # if self.prompt.exec():
             #     self.prompt.layout.removeWidget()
 
@@ -419,6 +457,9 @@ class Plot_Window(QMainWindow):
             f'parts of file title: file {filenameLists} {timePartOfList}')
         new_title = f'{filenameLists[-2]} {timePartOfList[0]}'
         titleForCsv = f'{" ".join([str(part) for part in filenameLists[:4]])} {timePartOfList[0]}'
+        logging.debug(
+            f'one {" ".join([str(part) for part in filenameLists[:4]])}')
+        logging.debug(f'two {timePartOfList[0]}')
         logging.debug(
             f'read raw file: file {filenameLists[-2]} {timePartOfList[0]} reading...')
         logging.debug(
@@ -459,41 +500,33 @@ class Plot_Window(QMainWindow):
 
     def openRawFile(self):   # metoda do wyszukania i wybrania pliku z poprzednimi pomiarami
         logging.info(f'select file')
-        file = QDir.currentPath()
-        dialog = QFileDialog(self)
-        dialog.setWindowTitle('File')
-        dialog.setNameFilters(
-            ['All files (*)', 'Pickle files (*.pbz2)'])
-        dialog.setDirectory(file)
-        dialog.setFileMode(QFileDialog.ExistingFile)
+        self.openFile(['pickleFileRaw'])
 
         self.analyzeFile.setEnabled(False)
-        if dialog.exec_() == QDialog.Accepted:
-            self.openedfile = dialog.selectedFiles()
-            logging.info(f'raw file: selected ')
-            if self.openedfile:
-                self.openedPath = str(self.openedfile[0])
-                data = self.readRawDataFromFile(self.openedPath)
-                if data == False:
-                    logging.info(f'raw file: file exist ')
-                    self.prompt.message(
-                        msg=f'Plik już istnieje. Zapisano w:\n{self.path}{self.title_file}.pbz2')
-                    if self.prompt.exec():
-                        self.prompt.layout.removeWidget()
-                    self.analyzeFile.setEnabled(True)
-                else:
-                    logging.info(f'analyzeThread: set ')
-                    self.prompt.message(
-                        msg=f'Trwa analizowanie pliku {self.openedPath}')
-                    if self.prompt.exec():
-                        self.prompt.layout.removeWidget()
-                    analyzeThread = threading.Thread(
-                        target=self.analyzeDataFromFile, args=(data,))
-                    self.analyzeFile.setText('Przetwarzanie danych')
-                    analyzeThread.start()
-                    self.RawFileSignal.connect(self.openButtonState)
+        logging.info(f'raw file: selected ')
+        if self.openedfile:
+            self.openedPath = str(self.openedfile[0])
+            data = self.readRawDataFromFile(self.openedPath)
+            if data == False:
+                logging.info(f'raw file: file exist ')
+                self.prompt.message(
+                    msg=f'Plik już istnieje. Zapisano w:\n{self.path}{self.title_file}.pbz2')
+                if self.prompt.exec():
+                    self.prompt.layout.removeWidget()
+                self.analyzeFile.setEnabled(True)
+            else:
+                logging.info(f'analyzeThread: set ')
+                self.prompt.message(
+                    msg=f'Trwa analizowanie pliku {self.openedPath}')
+                self.analyzeFile.setText('Przetwarzanie danych')
+                analyzeThread = threading.Thread(
+                    target=self.analyzeDataFromFile, args=(data,))
+                analyzeThread.start()
+                self.RawFileSignal.connect(self.openButtonState)
+                if self.prompt.exec():
+                    self.prompt.layout.removeWidget()
         else:
-            self.analyzeFile.setEnabled(True)
+            pass
 
     def openButtonState(self):
         self.analyzeFile.setText('Analizuj dane')

@@ -10,7 +10,6 @@ import re
 class SerialConnection(QObject):
     finishSignal = pyqtSignal(str)  # sygnał od zakończenia pomiaru
     popUpSignal = pyqtSignal(str)   # sygnał od powiadomienia o pońcu pomiaru
-    errorSignal = pyqtSignal()      # sygnał od komunikatów błędu
 
     def __init__(self):
         super(SerialConnection, self).__init__()
@@ -30,9 +29,10 @@ class SerialConnection(QObject):
         self.flag = ''
         self.config = ''
         self.path = ''
+        self.meansureButtonState = True
         self.chooise = ''
-
     # wyświetlenie podpiętych mikrokontrolerów
+
     def showDevices(self):
         self.ports = list(serial.tools.list_ports.comports())
         try:
@@ -76,21 +76,18 @@ class SerialConnection(QObject):
             if self.ierrors.exec():
                 self.ierrors.close()
                 self.endConnection()
-                self.errorSignal.emit()
         except TypeError as ty:
             msg = "\n Brak wybranej płytki lub baundrate.Wybierz ponownie ustawienia płytki"
             self.ierrors.message('Błąd', msg)
             if self.ierrors.exec():
                 self.ierrors.close()
                 self.endConnection()
-                self.errorSignal.emit()
         except Exception as e:
             msg = "\n Brak podłaczonej płytki. Podłącz płytkę i zacznij ponownie."
             self.ierrors.message('Błąd', msg)
             if self.ierrors.exec():
                 self.ierrors.close()
                 self.endConnection()
-                self.errorSignal.emit()
 
     def rescan(self):  # metoda od poprawnego zakończenia połączenia po sprawdzeniu portów
         time.sleep(3)
@@ -195,7 +192,11 @@ class SerialConnection(QObject):
                 self.endConnection()
 
     def endConnection(self):  # zamknięcie połączenia
-        time.sleep(1)
-        self.connection.flushOutput()
-        time.sleep(1)
-        self.connection.close()
+        try:
+            self.meansureButtonState = False
+            time.sleep(1)
+            self.connection.close()
+            time.sleep(1)
+            self.connection.flushOutput()
+        except serial.serialutil.PortNotOpenError:
+            self.connection.close()
