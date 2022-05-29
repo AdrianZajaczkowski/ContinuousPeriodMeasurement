@@ -1,7 +1,8 @@
 # Byte-compiled / optimized / DLL files
 .gitignore
-__pycache__/*
-promotors/*
-tests/*
-arduino_Code/*
-wyniki pomiarów/*
+__pycache__/
+promotors/
+tests/
+arduino_Code/
+wyniki pomiarów/
+build/*

@@ -36,6 +36,7 @@ class PlotWindow(QMainWindow):
         self.pickleSheet = None
         self.changeSecond, self.changeMain = True, True
         self.full = False
+        self.zoom = None
         self.F_CPU = 16000000
 
         self.PlotCount = 1
@@ -195,15 +196,14 @@ class PlotWindow(QMainWindow):
             self.prompt.layout.removeWidget()
 
     def plotConfiguration(self):
-        self.plots = self.chart.addPlot(row=0, col=0,
-                                        title=f"<b><p style=\"color: black\">{self.title_file}</p></b><")
-
-        self.plotLine = self.plots.plot(
-            [], pen=pg.mkPen('#FF4500', width=0.9), connected='pairs')
-
-        self.plots.showGrid(x=True, y=True, alpha=0.5)
         labels = {'color': 'w',
                   'font-size': f'{self.GridFont.pixelSize()}px'}
+
+        self.plots = self.chart.addPlot(row=0, col=0,
+                                        title=f"<b><p style=\"color: black\">{self.title_file}</p></b><")
+        self.plotLine = self.plots.plot(
+            [], pen=pg.mkPen('#FF4500', width=0.9), connected='pairs')
+        self.plots.showGrid(x=True, y=True, alpha=0.5)
         self.plots.setLabel('left', 'Frequency',
                             units='Hz', **labels)
         self.plots.setLabel('bottom', 'Time', units='s', **labels)
@@ -211,6 +211,26 @@ class PlotWindow(QMainWindow):
         self.plots.getAxis("bottom").setStyle(tickTextOffset=20)
         self.plots.getAxis("left").setTickFont(self.GridFont)
         self.plots.getAxis("left").setStyle(tickTextOffset=20)
+        self.chart.nextRow()
+        self.zoomedplot = self.chart.addPlot(row=1, col=0,
+                                             title=f"<b><p style=\"color: black\">Zoomed</p></b><")
+        self.zoomedLine = self.zoomedplot.plot(
+            [], pen=pg.mkPen('#FF4500', width=0.9), connected='pairs')
+        self.zoomedplot.showGrid(x=True, y=True, alpha=0.5)
+        self.zoomedplot.setLabel('left', 'Frequency', units='Hz', **labels)
+        self.zoomedplot.setLabel('bottom', 'Time', units='s', **labels)
+        self.zoomedplot.getAxis("bottom").setTickFont(self.GridFont)
+        self.zoomedplot.getAxis("bottom").setStyle(tickTextOffset=20)
+        self.zoomedplot.getAxis("left").setTickFont(self.GridFont)
+        self.zoomedplot.getAxis("left").setStyle(tickTextOffset=20)
+        self.zoom = pg.LinearRegionItem([0, 5])
+        self.updateZoom()
+        self.zoom.setZValue(1000)
+        self.zoom.sigRegionChanged.connect(self.updateZoom)
+        self.plots.addItem(self.zoom)
+
+    def updateZoom(self):
+        self.zoomedplot.setXRange(*self.zoom.getRegion(), padding=0)
 
     def configChart(self):  # metoda do konfiguracji wyglądu wykresu
         logging.debug(
@@ -219,14 +239,20 @@ class PlotWindow(QMainWindow):
             self.plotConfiguration()
         else:
             self.chart.removeItem(self.plots)
+            self.chart.removeItem(self.zoomedplot)
             self.PlotCount = 1
             self.plotConfiguration()
 
     def update(self):
         logging.debug(f"{len(self.timeList)},{len(self.freqList)}")
         setDataThread = threading.Thread(
-            target=self.plotLine.setData, args=(self.timeList, self.freqList,), daemon=True)
+            target=self.setDataToLine, args=(self.timeList, self.freqList,), daemon=True)
         setDataThread.start()
+
+    def setDataToLine(self, time, freq):
+        self.plotLine.setData(time, freq)
+        self.zoomedLine.setData(time, freq)
+        self.plotFile.setEnabled(True)
 
     def plotPointer(self):
         if self.changeSecond:
@@ -237,7 +263,7 @@ class PlotWindow(QMainWindow):
             self.plotPointsInChar.setText("Pokaż punkty wykresu")
             self.plotLine.setSymbol(None)
             self.changeSecond = True
-    # note przeniesiono
+
     def analyzeDataFromFile(self, sheet):  # Metoda do wizualizacji danych
         # note może być wartość 0, uwzględnij to
         logging.info(f'analyzeThread: start')
@@ -249,11 +275,11 @@ class PlotWindow(QMainWindow):
                                  'Txi': [],
                                  'fxi': [],
                                  'Xxi': [],
-                                 't': [],
-                                 'Błąd kwantowania (Nx+1)': [],
-                                 'Błąd bezwzględny': [],
-                                 'Błąd względny δ': [],
-                                 'Błąd względny δ%': [],
+                                 't': []
+                                 #  'Błąd kwantowania (Nx+1)': [],
+                                 #  'Błąd bezwzględny': [],
+                                 #  'Błąd względny δ': [],
+                                 #  'Błąd względny δ%': [],
                                  }
         for nx in sheet:
             i += 1
@@ -263,22 +289,22 @@ class PlotWindow(QMainWindow):
             else:
                 Nxi = float(nx)
                 Txi = Nxi*(1/self.F_CPU)
-                Tx1 = (Nxi+1)*(1/self.F_CPU)
                 fxi = 1/Txi
                 Xxi = fxi/self.tenderness
-                bwzg = round((Tx1-Txi), 8)
-                wzg = round((bwzg/Txi), 8)
                 t += Txi
-                proc_wzg = wzg*100
+                # bwzg = round((Tx1-Txi), 8)
+                # wzg = round((bwzg/Txi), 8)
+                # Tx1 = (Nxi+1)*(1/self.F_CPU)
+                # proc_wzg = wzg*100
                 calculated_dictionary['Nxi'].append(Nxi)
                 calculated_dictionary['Txi'].append(Txi)
-                calculated_dictionary['Błąd kwantowania (Nx+1)'].append(Tx1)
                 calculated_dictionary['fxi'].append(fxi)
                 calculated_dictionary['Xxi'].append(Xxi)
-                calculated_dictionary['Błąd bezwzględny'].append(bwzg)
-                calculated_dictionary['Błąd względny δ'].append(wzg)
                 calculated_dictionary['t'].append(t)
-                calculated_dictionary['Błąd względny δ%'].append(proc_wzg)
+                # calculated_dictionary['Błąd kwantowania (Nx+1)'].append(Tx1)
+                # calculated_dictionary['Błąd bezwzględny'].append(bwzg)
+                # calculated_dictionary['Błąd względny δ'].append(wzg)
+                # calculated_dictionary['Błąd względny δ%'].append(proc_wzg)
         tmp_list = calculated_dictionary['Xxi']
         logging.info(f' count of zeros {zeros}')
         logging.info(
@@ -323,8 +349,7 @@ class PlotWindow(QMainWindow):
             title = self.fileMeansureTime
         config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
                   "Txi": [self.device, self.baudrate, self.tenderness]}
-        headers = ["Nxi", "Txi", "fxi", "t", "Xxi",
-                   "Błąd kwantowania (Nx+1)", "Błąd bezwzględny", "Błąd względny δ", "Błąd względny δ%"]
+        headers = ["Nxi", "Txi", "fxi", "t", "Xxi"]
         self.title_file = f"pomiar z {title}"
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
         if not Path(f'{self.path}{self.title_file}.pbz2').is_file():
@@ -369,6 +394,7 @@ class PlotWindow(QMainWindow):
         self.openFile(['pickleFileA', 'csvfile'])
 
         if self.openedfile:
+            self.plotFile.setEnabled(False)
             logging.info(
                 f'read existed file: selected file {self.openedfile[0]} ')
             self.openedPath = str(self.openedfile[0])
@@ -384,7 +410,7 @@ class PlotWindow(QMainWindow):
                 self.prompt.layout.removeWidget()
         else:
             pass
-    #NOTE przenieisono
+
     def readAnalyzedFile(self, filename):
         logging.debug(
             f'analyze threading: start ')
@@ -413,7 +439,7 @@ class PlotWindow(QMainWindow):
     def startConvertingToCsv(self):  # wątek do konversji pliku z pickle do csv
 
         self.convertToCsvButton.setEnabled(False)
-        self.openFile(['pickleFileA'])
+        self.openFile(['pickleFileA', 'pickleFile'])
         self.convertToCsvButton.setText('Rozpoczęto konwersje do CSV')
         convertThread = threading.Thread(
             target=self.convertPickleToCsv).start()

@@ -1,11 +1,13 @@
 # lista bibliotek wykorzystanych w projekcie
-# biblioteki do aplikacji okienkowej
+
+# biblioteki odpowiedzialne za polączenie z arduino po serialu
 from ctypes.wintypes import BYTE
 from subprocess import call
 import struct
 import serial as sr
 import serial.tools.list_ports
 from serial.serialutil import SerialException
+# biblioteki do przetwarzania danych i wizualizacji
 import bz2
 import pickle
 import csv
@@ -19,6 +21,7 @@ import os
 import sys
 import json
 import threading
+# biblioteki do aplikacji okienkowej
 from functools import partial
 from PyQt5 import QtCore, QtWidgets
 from PyQt5.QtCore import QThread, QDir, pyqtSignal, Qt, QObject
@@ -28,8 +31,3 @@ import logging
 logging.basicConfig(filename='myProgramLog.txt', level=logging.DEBUG, filemode='w',
                     format=' Date time :%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s- line no: %(lineno)d - %(message)s')  # zapis logów do pliku, uwzględniając poziomy od Debug i wyżej, data/leve/wiadomosc
 
-# biblioteka do zwijania funkcji o kilku parametrach do przycisku
-# biblioteki do przetwarzania danych i wizualizacji
-
-
-# biblioteki odpowiedzialne za polączenie z arduino po serialu

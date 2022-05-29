@@ -142,7 +142,7 @@ class SerialConnection(QObject):
 
     def readValue(self, timeOfExecution):  # odczyt danych z mikrokontrolera
         logging.debug(f'readData: start {timeOfExecution}')
-        dictionary_serial = {'timestamp': None,
+        dictionary_serial = {'timestamp': None,'Ni':None,
                              'Nxi': None}
         self.flag = True
         thread1 = threading.Thread(
@@ -157,9 +157,10 @@ class SerialConnection(QObject):
 
                 Ni = struct.unpack('<H',  raw)[0]
                 valueDifference = Ni - self.lastValue
-                if valueDifference < 0:
+                if valueDifference <= 0:
                     valueDifference += self.overflow
                 dictionary_serial['timestamp'] = timeNow
+                dictionary_serial['Ni'] = Ni
                 dictionary_serial['Nxi'] = valueDifference
                 self.storage.append(dictionary_serial.copy())
                 self.lastValue = Ni

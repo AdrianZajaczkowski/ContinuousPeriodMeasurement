@@ -9,7 +9,7 @@ class ConfigDropList:
     def __init__(self):
         # self.serial = kwargs.pop('serial')
         super(ConfigDropList, self).__init__()
-        self.configPath = '..\MeansurePerioid\config.json'
+        self.configPath = 'src\config.json'
 
     # metoda dodawania elementu do pliku configuracyjnego w zależności od listy
     def jsonDump(self, data):
