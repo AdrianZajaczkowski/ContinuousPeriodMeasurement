@@ -1,6 +1,6 @@
 {
     "baudrate": {
-        "default": "1000000",
+        "default": "9600",
         "recovery": [
             "300",
             "600",
@@ -43,13 +43,13 @@
         ]
     },
     "devices": {
-        "default": "USB-SERIAL CH340 (COM7)",
+        "default": "Arduino Mega 2560 (COM6)",
         "standard": [
-            "USB-SERIAL CH340 (COM7)"
+            "Arduino Mega 2560 (COM6)"
         ]
     },
     "meansurmentTime": {
-        "default": "10 min",
+        "default": "15 s",
         "recovery": [
             "1 s",
             "5 s",
@@ -85,7 +85,7 @@
             15
         ],
         "Start": [
-            "Ci\u0105gly pomiar okresu sygna\u0142u przy wykorzystaniu platformy Arduino",
+            "Ci\u0105g\u0142y pomiar okresu sygna\u0142u przy wykorzystaniu platformy Arduino",
             20
         ]
     }

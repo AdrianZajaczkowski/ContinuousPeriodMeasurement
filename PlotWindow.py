@@ -34,7 +34,7 @@ class PlotWindow(QMainWindow):
         self.GridFont = None
         self.df_tmp = None
         self.pickleSheet = None
-        self.changeSecond, self.changeMain = True, True
+        self.changePlotPoints, self.changeMain = True, True
         self.full = False
         self.zoom = None
         self.F_CPU = 16000000
@@ -255,14 +255,14 @@ class PlotWindow(QMainWindow):
         self.plotFile.setEnabled(True)
 
     def plotPointer(self):
-        if self.changeSecond:
+        if self.changePlotPoints:
             self.plotPointsInChar.setText("Ukryj punkty wykresu")
-            self.plotLine.setSymbol('o')
-            self.changeSecond = False
+            self.zoomedLine.setSymbol('o')
+            self.changePlotPoints = False
         else:
             self.plotPointsInChar.setText("Pokaż punkty wykresu")
-            self.plotLine.setSymbol(None)
-            self.changeSecond = True
+            self.zoomedLine.setSymbol(None)
+            self.changePlotPoints = True
 
     def analyzeDataFromFile(self, sheet):  # Metoda do wizualizacji danych
         # note może być wartość 0, uwzględnij to
