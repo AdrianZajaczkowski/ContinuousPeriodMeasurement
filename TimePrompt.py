@@ -15,11 +15,11 @@ class TimePrompt(QDialog):
         self.msg.setFont(QFont('Times', 15))
         self.msg.setWordWrap(True)
         self.layout = QVBoxLayout()
+        self.layout.addWidget(self.msg)
+        self.setLayout(self.layout)
+        self.msg.adjustSize()
 
     def message(self, title='Uwaga!', msg=None):
         self.setWindowTitle(f'{title}')
         self.msg.setText(f'{msg}')
-        self.msg.adjustSize()
-        self.layout.addWidget(self.msg)
-        self.setLayout(self.layout)
         self.show()

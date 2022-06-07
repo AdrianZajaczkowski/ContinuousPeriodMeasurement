@@ -147,8 +147,8 @@ class SerialConnection(QObject):
 
         if not self.flag:
             try:
-                self.connection.open()
                 logging.debug(f'self.connection: start')
+                self.connection.open()
             except Exception as e:
                 logging.info(f'{e}')
                 pass

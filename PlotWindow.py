@@ -181,8 +181,7 @@ class PlotWindow(QMainWindow):
     def buttonState(self, desc):
         logging.info(f'get data: end capture')
         self.prompt.message(msg=f'Pomiar trwał: {desc}')
-        if self.prompt.show():
-            self.prompt.layout.removeWidget()
+        
 
         self.startCatchData.setText('Rozpocznij pobieranie danych')
         self.startCatchData.setEnabled(True)
@@ -192,8 +191,7 @@ class PlotWindow(QMainWindow):
             f' pop-up message about meansure time:{timeDesc}')
         self.prompt.message(
             msg=f'Czas pobierania danych: {timeDesc}. Proszę czekać.')
-        if self.prompt.show():
-            self.prompt.layout.removeWidget()
+        
 
     def plotConfiguration(self):
         labels = {'color': 'w',
@@ -408,8 +406,8 @@ class PlotWindow(QMainWindow):
             analyzeThreading.start()
             self.prompt.message(
                 msg=f'Trwa wczytywanie zestawu danych z pliku {self.openedPath}. Proszę czekać!')
-            if self.prompt.show():
-                self.prompt.layout.removeWidget()
+            
+                
         else:
             pass
 
@@ -444,9 +442,13 @@ class PlotWindow(QMainWindow):
         self.convertToCsvButton.setEnabled(False)
         self.openFile(['pickleFileA', 'pickleFile'])
         self.convertToCsvButton.setText('Rozpoczęto konwersje do CSV')
-        convertThread = threading.Thread(
-            target=self.convertPickleToCsv).start()
-        logging.debug(f'start thread: {convertThread} convert to CSV')
+        if not self.openedfile == None:
+            convertThread = threading.Thread(
+                target=self.convertPickleToCsv).start()
+            logging.debug(f'start thread: {convertThread} convert to CSV')
+        else:
+            self.convertToCsvButton.setEnabled(True)
+            self.convertToCsvButton.setText('Konwertuj plik do CSV')
 
     def convertPickleToCsv(self):
 
@@ -530,15 +532,13 @@ class PlotWindow(QMainWindow):
 
         self.analyzeFile.setEnabled(False)
         logging.info(f'raw file: selected ')
-        if self.openedfile:
+        if not self.openedfile == None:
             self.openedPath = str(self.openedfile[0])
             data = self.readRawDataFromFile(self.openedPath)
             if data == False:
                 logging.info(f'raw file: file exist ')
                 self.prompt.message(
                     msg=f'Plik już istnieje. Zapisano w:\n{self.path}{self.title_file}.pbz2')
-                if self.prompt.exec():
-                    self.prompt.layout.removeWidget()
                 self.analyzeFile.setEnabled(True)
             else:
                 logging.info(f'analyzeThread: set ')
@@ -549,11 +549,16 @@ class PlotWindow(QMainWindow):
                     target=self.analyzeDataFromFile, args=(data,))
                 analyzeThread.start()
                 self.RawFileSignal.connect(self.openButtonState)
-                if self.prompt.exec():
-                    self.prompt.layout.removeWidget()
+
         else:
-            pass
+            self.analyzeFile.setEnabled(True)
 
     def openButtonState(self):
         self.analyzeFile.setText('Analizuj dane')
         self.analyzeFile.setEnabled(True)
+        self.prompt.close()
+        self.prompt.message(
+            msg=f'Przeanalizowano plik: {self.openedPath}')
+
+        # if self.prompt.exec():
+        #     time.sleep(10)
