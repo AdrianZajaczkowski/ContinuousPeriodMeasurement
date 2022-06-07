@@ -328,7 +328,9 @@ class PlotWindow(QMainWindow):
             logging.debug(
                 f'pickle file: append sheet to header {self.path}{self.title_file}.pbz2 ')
             tmp_df_data = pd.DataFrame(df_data)
-            self.df_tmp = self.df_tmp.append(tmp_df_data, ignore_index=True)
+            # self.df_tmp = self.df_tmp.append(tmp_df_data, ignore_index=True)
+            self.df_tmp = pd.concat(
+                [self.df_tmp, tmp_df_data], ignore_index=True)
             logging.debug(
                 f'pickle file:  {self.df_tmp} ')
             f = bz2.BZ2File(Path(f'{self.path}{self.title_file}.pbz2'), 'wb')
@@ -431,6 +433,7 @@ class PlotWindow(QMainWindow):
         logging.debug(f'read existed file: done ')
         # self.AnalyzedFileSignal.emit(zippedDataPairs)
         self.AnalyzedFileSignal.emit()
+        self.pickleSheet = None
         # self.AnalyzedFileSignal.emit(self.timeList, self.freqList)
         logging.debug(
             f'analyze threading: done ')
@@ -448,9 +451,9 @@ class PlotWindow(QMainWindow):
     def convertPickleToCsv(self):
 
         with bz2.BZ2File(str(self.openedfile[0]), 'rb') as pickleAnalyzedSheet:
-            pickleSheet = pickle.load(pickleAnalyzedSheet)
+            self.pickleSheet = pickle.load(pickleAnalyzedSheet)
         convertThread = threading.Thread(
-            target=self.csvconplete, args=(pickleSheet,)).start()
+            target=self.csvconplete, args=(self.pickleSheet,)).start()
 
     def csvconplete(self, pickleSheet):
 
@@ -458,23 +461,17 @@ class PlotWindow(QMainWindow):
             logging.debug('convert to CSV')
             df_csv = pd.DataFrame(pickleSheet)
             logging.debug(f'convert to CSV: \n {df_csv}')
-            newTitleAndPath, _ = self.modifyFileName(str(self.openedfile[0]))
             logging.debug(f'convert to CSV path: {str(self.openedfile[0])}')
+            newTitleAndPath, _ = self.modifyFileName(str(self.openedfile[0]))
             logging.debug(f'convert to CSV new path: {newTitleAndPath}.csv')
             df_csv.to_csv(f'{newTitleAndPath}.csv')
             logging.debug(f'convert to CSV new path: done')
-            # self.prompt.message(
-            #     msg=f'Plik zapisano jako {newTitleAndPath}.csv.')
+
             self.convertToCsvButton.setText('Plik zamieniono na format CSV')
-            # self.prompt.message(
-            #     msg=f'Utworzono plik {newTitleAndPath}.csv')
-            # if self.prompt.show():
-            #     self.prompt.layout.removeWidget()
-            pickleSheet = None  # clear memory
+
+            self.pickleSheet = None  # clear memory
             self.convertToCsvButton.setEnabled(True)
             self.convertToCsvButton.setText('Konwertuj plik do CSV')
-            # if self.prompt.exec():
-            #     self.prompt.layout.removeWidget()
 
     def modifyFileName(self, filename):  # metoda do modyfikacji nowej nazwy pliku
         filenameLists = filename.split()
@@ -482,9 +479,12 @@ class PlotWindow(QMainWindow):
         logging.debug(
             f'parts of file title: file {filenameLists} {timePartOfList}')
         new_title = f'{filenameLists[-2]} {timePartOfList[0]}'
-        titleForCsv = f'{" ".join([str(part) for part in filenameLists[:4]])} {timePartOfList[0]}'
+        logging.info(f'{new_title}')
+        filenameLists.pop()
+        titleForCsv = f'{" ".join([str(part) for part in filenameLists])} {timePartOfList[0]}'
+        logging.info(f'{titleForCsv}')
         logging.debug(
-            f'one {" ".join([str(part) for part in filenameLists[:4]])}')
+            f'one {" ".join([str(part) for part in filenameLists[:]])}')
         logging.debug(f'two {timePartOfList[0]}')
         logging.debug(
             f'read raw file: file {filenameLists[-2]} {timePartOfList[0]} reading...')

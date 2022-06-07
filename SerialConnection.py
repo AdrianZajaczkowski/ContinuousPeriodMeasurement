@@ -68,7 +68,7 @@ class SerialConnection(QObject):
             self.config = {'timestamp': ["Device", "Port", "Baudrate", "Tenderness"],
                            'Nxi': [device, self.connection.port, self.connection.baudrate, tenderness], }
             self.connection.close()
-            self.connection.open()
+            # self.connection.open()
 
         except ValueError as value:
             value = "\n Niepoprawna wartość czułości. Wybierz ponownie. Jesli jest zmiennoprzecinkowa wykorzystaj kropkę \" . \" "
@@ -101,18 +101,21 @@ class SerialConnection(QObject):
     # metoda od zapisu danych do pliku pickle w konfiguracji nagłówek+dane
     def compressed_pickle(self, df_data, flag):
         if flag:
-            new_df = self.df_tmp.append(df_data, ignore_index=True)
+            # new_df = self.df_tmp.append(df_data, ignore_index=True)
+            new_df = pd.concat(
+                [self.df_tmp, df_data], ignore_index=True)
             f = bz2.BZ2File(Path(f'{self.path}RAW {self.title}.pbz2'), 'wb')
             pickle.dump(new_df, f)
             logging.debug(f'file: done')
             f.close()
+            # self.df_tmp = None
         else:
             self.df_tmp = df_data
 
     def createPickleFile(self):    # metoda do stworzenia określonego pliku csv
         self.path = r'..\\MeansurePerioid\\wyniki pomiarów\\'
         if not Path(f'{self.path}RAW {self.title}.pbz2').is_file():
-            headers = ["timestamp", "Nxi"]
+            headers = ["timestamp", 'RAW L', 'RAW H', 'Ni', "Nxi"]
             sf = pd.DataFrame(self.config, columns=headers)
             self.compressed_pickle(sf, False)
 
@@ -120,8 +123,8 @@ class SerialConnection(QObject):
         time.sleep(amountOfSeconds)
         logging.debug(f'readData: stop with {amountOfSeconds}s')
         self.flag = False
-
     # wyliczenie czasu pomiaru na podstawie wybranego argumentu czasu w sekundach
+
     def meansureRange(self, chooise, filename):
         logging.debug(f'meansure: set time')
         self.title = filename
@@ -141,8 +144,17 @@ class SerialConnection(QObject):
         logging.debug(f'readData: end')
 
     def readValue(self, timeOfExecution):  # odczyt danych z mikrokontrolera
+
+        if not self.flag:
+            try:
+                self.connection.open()
+                logging.debug(f'self.connection: start')
+            except Exception as e:
+                logging.info(f'{e}')
+                pass
+
         logging.debug(f'readData: start {timeOfExecution}')
-        dictionary_serial = {'timestamp': None,'Ni':None,
+        dictionary_serial = {'timestamp': None, 'RAW L': None, 'RAW H': None, 'Ni': None,
                              'Nxi': None}
         self.flag = True
         thread1 = threading.Thread(
@@ -153,18 +165,27 @@ class SerialConnection(QObject):
 
                 now = datetime.now()
                 timeNow = now.strftime("%H:%M:%S")
-                raw = self.connection.read(2)
+                raw1 = self.connection.read(1)
+                raw2 = self.connection.read(1)
+                raw = raw1+raw2
 
+                Ni1 = struct.unpack('<B',  raw1)[0]
+                Ni2 = struct.unpack('<B',  raw2)[0]
                 Ni = struct.unpack('<H',  raw)[0]
+
                 valueDifference = Ni - self.lastValue
                 if valueDifference <= 0:
                     valueDifference += self.overflow
                 dictionary_serial['timestamp'] = timeNow
+                dictionary_serial['RAW L'] = Ni1
+                dictionary_serial['RAW H'] = Ni2
                 dictionary_serial['Ni'] = Ni
                 dictionary_serial['Nxi'] = valueDifference
                 self.storage.append(dictionary_serial.copy())
                 self.lastValue = Ni
             self.writers(self.storage)
+            self.connection.close()
+            logging.debug(f'self.connection: end')
 
         except serial.SerialException as e:
             msg = 'Błąd portu USB. Sprawdź połączenie i zacznij pomiary ponownie'
