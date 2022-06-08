@@ -34,6 +34,9 @@ class PlotWindow(QMainWindow):
         self.GridFont = None
         self.df_tmp = None
         self.pickleSheet = None
+        self.FMParam = '1'
+        self.FLineParam = '2'
+        self.F0Param = '3'
         self.changePlotPoints, self.changeMain = True, True
         self.full = False
         self.zoom = None
@@ -52,6 +55,7 @@ class PlotWindow(QMainWindow):
         self._config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
                         "Txi": [self.device, self.baudrate, self.tenderness]}
         self.setWindowTitle("Python 3.9.7")
+
         self.uiSet()
 
     def closeConnection(self):
@@ -80,7 +84,9 @@ class PlotWindow(QMainWindow):
 
         self.widget = QWidget()
         self.grid = QGridLayout()
+        self.freqParams = QGridLayout()
         self.timeBox = QGroupBox("Czas pomiaru")
+        self.freqBox = QGroupBox("Parametry Sygnału")
         self.timeButtons = QGridLayout()
         self.chart = pg.GraphicsLayoutWidget(show=True)
 
@@ -89,13 +95,26 @@ class PlotWindow(QMainWindow):
         self.timeButtons.addWidget(self.resetNewMeansureTime, 1, 1)
         self.timeButtons.addWidget(self.comboTimeMeansure, 2, 0, 1, 0)
         self.timeBox.setLayout(self.timeButtons)
+
+        self.freqParams.addWidget(self.FLineLabel, 1, 0)
+        self.freqParams.addWidget(self.FLine, 1, 1)
+        self.freqParams.addWidget(self.F0LineLabel, 2, 0)
+        self.freqParams.addWidget(self.F0Line, 2, 1)
+        self.freqParams.addWidget(self.FMLineLabel, 3, 0)
+        self.freqParams.addWidget(self.FMLine, 3, 1)
+        self.freqParams.addWidget(self.FButton, 4, 0)
+        self.freqBox.setLayout(self.freqParams)
+        self.freqBox.setAlignment(QtCore.Qt.AlignLeft)
+
         self.grid.addWidget(self.timeBox, 0, 0)
         self.grid.addWidget(self.startCatchData, 1, 0)
         self.grid.addWidget(self.analyzeFile, 2, 0)
         self.grid.addWidget(self.plotFile, 3, 0)
         self.grid.addWidget(self.convertToCsvButton, 4, 0)
         self.grid.addWidget(self.plotPointsInChar, 5, 0)
-        self.grid.addWidget(self.chart, 0, 1, 13, 4)
+        self.grid.addWidget(self.freqBox, 6, 0, 2, 0)
+
+        self.grid.addWidget(self.chart, 0, 1, 13, 6)
         self.setCentralWidget(self.widget)
         logging.info(f'uiset: done')
 
@@ -114,24 +133,51 @@ class PlotWindow(QMainWindow):
         self.addNewMeansureTime = QPushButton('Dodaj nowy czas pomiaru', self)
         self.resetNewMeansureTime = QPushButton(
             'Resetuj czasy poimiaru', self)
+        self.startCatchData = QPushButton('Rozpocznij pobieranie danych')
+        self.analyzeFile = QPushButton('Analizuj dane')
+        self.plotFile = QPushButton('Wyświetl dane')
+        self.convertToCsvButton = QPushButton('Konwertuj plik do CSV')
+
+        self.FLineLabel = QLabel('F')
+
+        self.FLineLabel.adjustSize()
+        self.F0LineLabel = QLabel('F0')
+        self.F0LineLabel.adjustSize()
+
+        self.FMLineLabel = QLabel('FM')
+        self.FMLineLabel.adjustSize()
+
+        self.FLine = QLineEdit(self)
+        self.F0Line = QLineEdit(self)
+        self.FMLine = QLineEdit(self)
+        self.FButton = QPushButton('Zatwierdź parametry')
+        self.FButton.clicked.connect(self.editLineChange)
+        self.FLineLabel.setBuddy(self.FLine)
+        self.F0LineLabel.setBuddy(self.F0Line)
+        self.FMLineLabel.setBuddy(self.FMLine)
+
         self.addNewMeansureTime.clicked.connect(addTime)
         self.resetNewMeansureTime.clicked.connect(resetTime)
-        self.startCatchData = QPushButton('Rozpocznij pobieranie danych')
         self.startCatchData.clicked.connect(self.startMeanurments)
-        self.analyzeFile = QPushButton('Analizuj dane')
         self.analyzeFile.clicked.connect(self.openRawFile)
-        self.plotFile = QPushButton('Wyświetl dane')
         self.plotFile.clicked.connect(self.showAnalyzedData)
-        self.convertToCsvButton = QPushButton('Konwertuj plik do CSV')
         self.convertToCsvButton.clicked.connect(self.startConvertingToCsv)
+
         self.plotPointsInChar = QPushButton('Pokaż punkty wykresu')
         self.plotPointsInChar.clicked.connect(self.plotPointer)
+
         if self.serial.meansureButtonState:
             pass
         else:
             self.startCatchData.setEnabled(False)
             logging.warning(
                 ' class get wrong params, capture data unavailable!')
+
+    def editLineChange(self):
+        self.FLineParam = self.FLine.text()
+        self.F0Param = self.F0Line.text()
+        self.FMParam = self.FMLine.text()
+  
 
     def showAnalyzedData(self):
         self.openAnalyzedFile()
@@ -181,7 +227,6 @@ class PlotWindow(QMainWindow):
     def buttonState(self, desc):
         logging.info(f'get data: end capture')
         self.prompt.message(msg=f'Pomiar trwał: {desc}')
-        
 
         self.startCatchData.setText('Rozpocznij pobieranie danych')
         self.startCatchData.setEnabled(True)
@@ -191,7 +236,6 @@ class PlotWindow(QMainWindow):
             f' pop-up message about meansure time:{timeDesc}')
         self.prompt.message(
             msg=f'Czas pobierania danych: {timeDesc}. Proszę czekać.')
-        
 
     def plotConfiguration(self):
         labels = {'color': 'w',
@@ -324,14 +368,15 @@ class PlotWindow(QMainWindow):
     def addToPickle(self, df_data, flag):
         if flag:
             logging.debug(
-                f'pickle file: append sheet to header {self.path}{self.title_file}.pbz2 ')
+                f'pickle file: append sheet to header {self.path}{self.title_file} F_{self.FLineParam} F0_{self.F0Param} FM_{self.FMParam}.pbz2 ')
             tmp_df_data = pd.DataFrame(df_data)
             # self.df_tmp = self.df_tmp.append(tmp_df_data, ignore_index=True)
             self.df_tmp = pd.concat(
                 [self.df_tmp, tmp_df_data], ignore_index=True)
             logging.debug(
                 f'pickle file:  {self.df_tmp} ')
-            f = bz2.BZ2File(Path(f'{self.path}{self.title_file}.pbz2'), 'wb')
+            f = bz2.BZ2File(Path(
+                f'{self.path}{self.title_file} F_{self.FLineParam} F0_{self.F0Param} FM_{self.FMParam}.pbz2'), 'wb')
 
             pickle.dump(self.df_tmp, f)
             f.close()
@@ -352,15 +397,15 @@ class PlotWindow(QMainWindow):
         headers = ["Nxi", "Txi", "fxi", "t", "Xxi"]
         self.title_file = f"pomiar z {title}"
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
-        if not Path(f'{self.path}{self.title_file}.pbz2').is_file():
+        if not Path(f'{self.path}{self.title_file}F_{self.FLineParam}F0_{self.F0Param}FM_{self.FMParam}.pbz2').is_file():
             sf = pd.DataFrame(config, columns=headers)
             self.addToPickle(sf, False)
             logging.debug(
-                f'pickle file create: created {self.path}{self.title_file}.pbz2 ')
+                f'pickle file create: created {self.path}{self.title_file} F_{self.FLineParam} F0_{self.F0Param} FM_{self.FMParam}.pbz2 ')
             return True
         else:
             logging.debug(
-                f'pickle file created before:{self.path}{self.title_file}.pbz2 ')
+                f'pickle file created before:{self.path}{self.title_file} F_{self.FLineParam} F0_{self.F0Param} FM_{self.FMParam}.pbz2 ')
             return False
 
     def openFile(self, filetype):
@@ -406,8 +451,7 @@ class PlotWindow(QMainWindow):
             analyzeThreading.start()
             self.prompt.message(
                 msg=f'Trwa wczytywanie zestawu danych z pliku {self.openedPath}. Proszę czekać!')
-            
-                
+
         else:
             pass
 
@@ -502,7 +546,7 @@ class PlotWindow(QMainWindow):
         _, newFileName = self.modifyFileName(filename)
         logging.debug(
             f'New file {newFileName} ')
-        sheet = list(data['Nxi'][7:])
+        sheet = list(data['Nxi'][500:])
         logging.debug(f' lowest data {min(sheet)}')
         logging.info(f'length of sheet {len(sheet)}')
 

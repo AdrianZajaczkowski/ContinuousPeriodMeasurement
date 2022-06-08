@@ -9,7 +9,7 @@ from SerialConnection import *
 class WelcomeWindow(QWidget):
     logging.info("Start App")
     # sygnał odpowiadający za przekazanie parametrów do metody SerialConnection.connect()
-    signalSerial = pyqtSignal(str, str, str)
+    signalSerial = pyqtSignal(str, str, str, str)
 
     def __init__(self, parent=None):
         super(WelcomeWindow, self).__init__(parent)
@@ -18,31 +18,18 @@ class WelcomeWindow(QWidget):
         self._tenderness = "tenderness"
         self.default = False
         self.serial = SerialConnection()
+        self.radioEndiannessState = '>'
         self.files = ConfigDropList()
         self.setWindowTitle("Python 3.9.7")
         self.serial.showDevices()  # wykrycie podłaczonych mikrokontrolerów
         self._configLayout()
 
-    def _configLayout(self):  # metoda do konfiguracji okna klasy
-        font = QFont()
-        font.setPixelSize(17)
-        self.setFont(font)
-        self.resize(1024, 700)
-        frame = self.frameGeometry()
-        position = QDesktopWidget().availableGeometry().center()
-        frame.moveCenter(position)
-        self.move(frame.topLeft())
-        self.logoLabel = QLabel(self)
-        self.logo = QPixmap('..\MeansurePerioid\sheets\pollubLogo.png')
-        self.logoLabel.setPixmap(self.logo)
-        # pobieranie wartości do wyświetlenia z pliku config.json przy pomocy klasy ConfigDropList()
+    def configButtons(self):  #
         self.pkg = self.files.showData()
         self.dev = self.pkg[self._devices]
         self.baud = self.pkg[self._baudrate]
         self.tenderness = self.pkg[self._tenderness]
-        self.descr = self._configText(text=self.pkg["text"]['Start'])
-        self.author = self._configText(text=self.pkg["text"]['Autor'])
-        # inicjacja rozwijanych list
+
         self.comboDevices = ComboList(
             self, option=self.dev["standard"], default=self.dev["default"])
         self.comboBaudrate = ComboList(
@@ -53,16 +40,13 @@ class WelcomeWindow(QWidget):
         self.addDeviceButton = QPushButton('Dodaj nową platformę', self)
         self.addTendernessButton = QPushButton(
             'Dodaj czułość przekaźnika', self)
-        self.addBaudrateButton = QPushButton(
-            'Dodaj nowy baudrate', self)
+        self.addBaudrateButton = QPushButton('Dodaj nowy baudrate', self)
 
         self.resetDeviceButton = QPushButton('Odśwież platformy', self)
         self.resetBaudrateButton = QPushButton('Reset baudrate', self)
-        self.resetTendernessButton = QPushButton(
-            'Reset czułości', self)
+        self.resetTendernessButton = QPushButton('Reset czułości', self)
         self.goButton = QPushButton('Zacznij pomiary', self)
-        self.logoLabel.setAlignment(
-            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+
         # przesyłanie danych z okien wyboru do ponownego zapisu do pliku config.json
         # takie działanie ma na celu zapis nowych danych do pliku i późniejsze wykorzystanie danych
         addDevice = partial(self.files.addItem, self, self.comboDevices,
@@ -87,14 +71,66 @@ class WelcomeWindow(QWidget):
         self.resetBaudrateButton.clicked.connect(resetBaudrate)
         self.resetTendernessButton.clicked.connect(resetTenderness)
         self.goButton.clicked.connect(self.jump)
+
+        self.radioEndianness1 = QRadioButton('Little Endian')
+        self.radioEndianness2 = QRadioButton('Big Endian')
+        self.radioEndianness2.setChecked(True)
+        self.radioEndianness1.toggled.connect(
+            lambda: self.changeRadio(self.radioEndianness1))
+        self.radioEndianness2.toggled.connect(
+            lambda: self.changeRadio(self.radioEndianness2))
+
+    def changeRadio(self, radio):
+
+        if radio.text() == 'Little Endian':
+            if radio.isChecked() == True:
+                self.radioEndiannessState = '<'
+            else:
+                pass
+        if radio.text() == 'Big Endian':
+            if radio.isChecked() == True:
+                self.radioEndiannessState = '>'
+            else:
+                pass
+
+    def _configLayout(self):  # metoda do konfiguracji okna klasy
+        self.configButtons()
+
+        font = QFont()
+        font.setPixelSize(17)
+        self.setFont(font)
+        self.resize(1024, 800)
+
+        frame = self.frameGeometry()
+        position = QDesktopWidget().availableGeometry().center()
+        frame.moveCenter(position)
+        self.move(frame.topLeft())
+
+        self.logoLabel = QLabel(self)
+        self.logo = QPixmap('..\MeansurePerioid\sheets\pollubLogo.png')
+        self.logoLabel.setPixmap(self.logo)
+        # pobieranie wartości do wyświetlenia z pliku config.json przy pomocy klasy ConfigDropList()
+        self.descr = self._configText(text=self.pkg["text"]['Start'])
+        self.author = self._configText(text=self.pkg["text"]['Autor'])
+        # inicjacja rozwijanych list
+        self.logoLabel.setAlignment(
+            QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
+
         # inicjowanie siatki elementów oraz grup elementów do wyświetlenia
         self.deviceBox = QGroupBox("Platforma")
         self.baundrateBox = QGroupBox("Baudrate")
         self.tendernessBox = QGroupBox("Czułość przetwornika")
+        self.radioEndiannesBox = QGroupBox("Endianness")
+
         self.specify = QGridLayout()
         self.deviceLabel = QGridLayout()
         self.baundLabel = QGridLayout()
         self.tendernessLabel = QGridLayout()
+        self.endiannessLabel = QGridLayout()
+
+        # self.radioGroup = QButtonGroup()
+        # self.radioGroup.addButton(self.radioEndianness1)
+        # self.radioGroup.addButton(self.radioEndianness2)
         # rozmiezczenie elementów w interfejsie okna
         self.specify.addWidget(self.logoLabel, 0, 0, 1, 0)
         self.specify.addWidget(self.descr, 1, 0, 2, 3)
@@ -116,9 +152,14 @@ class WelcomeWindow(QWidget):
         self.tendernessLabel.addWidget(self.comboTenderness, 2, 0, 1, 0)
         self.tendernessBox.setLayout(self.tendernessLabel)
 
+        self.endiannessLabel.addWidget(self.radioEndianness1, 1, 0)
+        self.endiannessLabel.addWidget(self.radioEndianness2, 1, 1)
+        self.radioEndiannesBox.setLayout(self.endiannessLabel)
+
         self.specify.addWidget(self.deviceBox, 3, 0, 1, 0)
-        self.specify.addWidget(self.baundrateBox, 4, 0, 1, 0)
-        self.specify.addWidget(self.tendernessBox, 5, 0, 1, 0)
+        self.specify.addWidget(self.radioEndiannesBox, 4, 0, 1, 0)
+        self.specify.addWidget(self.baundrateBox, 5, 0, 1, 0)
+        self.specify.addWidget(self.tendernessBox, 6, 0, 1, 0)
         self.setLayout(self.specify)
     # ustawienie tekstu nagłówków
 
@@ -153,10 +194,10 @@ class WelcomeWindow(QWidget):
         self.signalSerial.connect(self.serial.connect)
         if self.dev["default"] and self.baud["default"] and self.tenderness["default"]:
             self.signalSerial.emit(self.comboDevices.default,
-                                   self.comboBaudrate.default, '1')  # emitowanie konfiguracji do połączenia z mikrokontrolerem
+                                   self.comboBaudrate.default, '1', self.radioEndiannessState)  # emitowanie konfiguracji do połączenia z mikrokontrolerem
         else:
             self.signalSerial.emit(self.comboDevices.option,
-                                   self.comboBaudrate.option, '1')
+                                   self.comboBaudrate.option, '1', self.radioEndiannessState)
         plotWindow = PlotWindow(
             parent=self, serial=self.serial, pkg=self.pkg)
         plotWindow.showSecondWindow()  # wyświetlenie okna PlotAxes

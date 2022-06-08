@@ -31,6 +31,7 @@ class SerialConnection(QObject):
         self.path = ''
         self.meansureButtonState = True
         self.chooise = ''
+        self.endianness = ''
     # wyświetlenie podpiętych mikrokontrolerów
 
     def showDevices(self):
@@ -47,8 +48,10 @@ class SerialConnection(QObject):
                 self.endConnection()
 
     # konfigurowanie połączenia na podstawie parametrów
-    def connect(self, device, baudrate, tenderness):
+    def connect(self, device, baudrate, tenderness, endianness):
         try:
+            self.endianness = endianness
+   
             if isinstance(tenderness, str):
                 tenderness = float(tenderness)
             else:
@@ -160,6 +163,7 @@ class SerialConnection(QObject):
         thread1 = threading.Thread(
             target=self.validTime, args=(timeOfExecution,))
         thread1.start()
+
         try:
             while self.flag:
 
@@ -169,10 +173,10 @@ class SerialConnection(QObject):
                 raw2 = self.connection.read(1)
                 raw = raw1+raw2
 
-                Ni1 = struct.unpack('<B',  raw1)[0]
-                Ni2 = struct.unpack('<B',  raw2)[0]
-                Ni = struct.unpack('<H',  raw)[0]
-
+                Ni1 = struct.unpack(f'{self.endianness}B',  raw1)[0]
+                Ni2 = struct.unpack(f'{self.endianness}B',  raw2)[0]
+            
+                Ni = struct.unpack(f'{self.endianness}H',  raw)[0]
                 valueDifference = Ni - self.lastValue
                 if valueDifference <= 0:
                     valueDifference += self.overflow
