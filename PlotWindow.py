@@ -12,7 +12,6 @@ pg.setConfigOption('foreground', 'k')
 
 
 class PlotWindow(QMainWindow):
-    # serialSignal = pyqtSignal(str, str) # sygnał wykorzystywany pomiędzy klasą SerialConnection a obecna klasą
     # sygnał odpowiedzialny za powiadomienie o nowych przanalizowanych danych
     RawFileSignal = pyqtSignal()
     AnalyzedFileSignal = pyqtSignal()  # sygnał od analizy pliku
@@ -30,13 +29,15 @@ class PlotWindow(QMainWindow):
         self._meansureTime = "meansurmentTime"
         self.currentDay = None
         self.mainPlot = None
+        self.pickleDict = {}
         self.WindowFont = None
         self.GridFont = None
         self.df_tmp = None
         self.pickleSheet = None
-        self.FMParam = '1'
-        self.FLineParam = '2'
-        self.F0Param = '3'
+        self.signalDesc = ''
+        self.FMParam = ''
+        self.FLineParam = ''
+        self.F0Param = ''
         self.changePlotPoints, self.changeMain = True, True
         self.full = False
         self.zoom = None
@@ -79,16 +80,22 @@ class PlotWindow(QMainWindow):
         self.setMinimumSize(800, 600)
         self.setGeometry(0, 0, 1920, 1080)
         frame = self.frameGeometry()
+
         self.move(frame.topLeft())
         self.buttonsConfig()
 
         self.widget = QWidget()
         self.grid = QGridLayout()
-        self.freqParams = QGridLayout()
         self.timeBox = QGroupBox("Czas pomiaru")
         self.freqBox = QGroupBox("Parametry Sygnału")
+        self.analyzeBox = QGroupBox("Analiza Plików")
+        self.mainBox = QGroupBox("Analiza Sygnału")
         self.timeButtons = QGridLayout()
-        self.chart = pg.GraphicsLayoutWidget(show=True)
+        self.freqParams = QGridLayout()
+        self.analyzeGrid = QGridLayout()
+        self.box = QGridLayout()
+        self.chart = pg.GraphicsLayoutWidget(
+            show=True, size=(1920, 1080))
 
         self.widget.setLayout(self.grid)
         self.timeButtons.addWidget(self.addNewMeansureTime, 1, 0)
@@ -96,25 +103,28 @@ class PlotWindow(QMainWindow):
         self.timeButtons.addWidget(self.comboTimeMeansure, 2, 0, 1, 0)
         self.timeBox.setLayout(self.timeButtons)
 
-        self.freqParams.addWidget(self.FLineLabel, 1, 0)
-        self.freqParams.addWidget(self.FLine, 1, 1)
-        self.freqParams.addWidget(self.F0LineLabel, 2, 0)
-        self.freqParams.addWidget(self.F0Line, 2, 1)
-        self.freqParams.addWidget(self.FMLineLabel, 3, 0)
-        self.freqParams.addWidget(self.FMLine, 3, 1)
-        self.freqParams.addWidget(self.FButton, 4, 0)
+        self.freqParams.addWidget(self.F0LineLabel, 1, 0)
+        self.freqParams.addWidget(self.F0Line, 1, 1)
+        self.freqParams.addWidget(self.FMLineLabel, 2, 0)
+        self.freqParams.addWidget(self.FMLine, 2, 1)
+        self.freqParams.addWidget(self.FLineLabel, 3, 0)
+        self.freqParams.addWidget(self.FLine, 3, 1)
+        self.freqParams.addWidget(self.FButton, 4, 0, 1, 0)
+        self.freqParams.addWidget(self.startCatchData, 5, 0, 1, 0)
         self.freqBox.setLayout(self.freqParams)
-        self.freqBox.setAlignment(QtCore.Qt.AlignLeft)
 
-        self.grid.addWidget(self.timeBox, 0, 0)
-        self.grid.addWidget(self.startCatchData, 1, 0)
-        self.grid.addWidget(self.analyzeFile, 2, 0)
-        self.grid.addWidget(self.plotFile, 3, 0)
-        self.grid.addWidget(self.convertToCsvButton, 4, 0)
-        self.grid.addWidget(self.plotPointsInChar, 5, 0)
-        self.grid.addWidget(self.freqBox, 6, 0, 2, 0)
+        self.analyzeGrid.addWidget(self.analyzeFile, 0, 0)
+        self.analyzeGrid.addWidget(self.plotFile, 1, 0)
+        self.analyzeGrid.addWidget(self.convertToCsvButton, 2, 0)
+        self.analyzeGrid.addWidget(self.plotPointsInChar, 3, 0)
+        self.analyzeBox.setLayout(self.analyzeGrid)
+        self.box.addWidget(self.timeBox, 0, 0)
+        self.box.addWidget(self.freqBox, 1, 0)
+        self.box.addWidget(self.analyzeBox, 2, 0)
+        self.mainBox.setLayout(self.box)
+        self.grid.addWidget(self.mainBox, 0, 0, 1, 4, Qt.AlignLeft)
 
-        self.grid.addWidget(self.chart, 0, 1, 13, 6)
+        self.grid.addWidget(self.chart, 0, 1, 13, 4, Qt.AlignJustify)
         self.setCentralWidget(self.widget)
         logging.info(f'uiset: done')
 
@@ -139,13 +149,8 @@ class PlotWindow(QMainWindow):
         self.convertToCsvButton = QPushButton('Konwertuj plik do CSV')
 
         self.FLineLabel = QLabel('F')
-
-        self.FLineLabel.adjustSize()
         self.F0LineLabel = QLabel('F0')
-        self.F0LineLabel.adjustSize()
-
         self.FMLineLabel = QLabel('FM')
-        self.FMLineLabel.adjustSize()
 
         self.FLine = QLineEdit(self)
         self.F0Line = QLineEdit(self)
@@ -165,19 +170,45 @@ class PlotWindow(QMainWindow):
 
         self.plotPointsInChar = QPushButton('Pokaż punkty wykresu')
         self.plotPointsInChar.clicked.connect(self.plotPointer)
-
+        self.startCatchData.setEnabled(False)
         if self.serial.meansureButtonState:
             pass
         else:
-            self.startCatchData.setEnabled(False)
+            self.FButton.setEnabled(False)
             logging.warning(
                 ' class get wrong params, capture data unavailable!')
 
     def editLineChange(self):
-        self.FLineParam = self.FLine.text()
-        self.F0Param = self.F0Line.text()
-        self.FMParam = self.FMLine.text()
-  
+        F0 = self.F0Line.text()
+        FM = self.FMLine.text()
+        F = self.FLine.text()
+
+        if not F0 or not re.search(".Hz", F0) or not re.search(r'\d', F0):
+            self.startCatchData.setEnabled(False)
+            msg = "\n Niepoprawna wartości F0 lub brak jednostki. Uzupełnij dane!"
+            self.ierrors.message('Błąd', msg)
+            if self.ierrors.exec():
+                self.ierrors.close()
+        else:
+            self.F0Param = f'F0_{F0}'
+            self.startCatchData.setEnabled(True)
+
+        if re.search(r'\d', FM) and re.search(r'\d', F):
+            if not re.search(".Hz", FM) or not re.search(".Hz", F):
+                msg = "\n Brak jednostki. Uzupełnij dane!"
+                self.ierrors.message('Błąd', msg)
+                if self.ierrors.exec():
+                    self.ierrors.close()
+            else:
+                self.FMParam = f'FM_{FM}'
+                self.FLineParam = f'F_{F}'
+        elif re.search(r'\d', FM) and not re.search(r'\d', F) or not re.search(r'\d', FM) and re.search(r'\d', F):
+            msg = "\n Uzupełnij pozostałe jeśli wypełniono FM lub F!"
+            self.ierrors.message('Błąd', msg)
+            if self.ierrors.exec():
+                self.ierrors.close()
+        else:
+            pass
 
     def showAnalyzedData(self):
         self.openAnalyzedFile()
@@ -187,15 +218,11 @@ class PlotWindow(QMainWindow):
     def analyzedPlot(self):
         self.prompt.close()
         logging.debug(f'visualization: start ')
-        # zmniejszenie zasobów pamięciu dzięki generatorowi
-        self.pairsGenerator = (pair for pair in self.pairs)
         self.configChart()  # metoda konfigurująca dany wykres
         self.countPlot()  # metoda zliczająca ile jest aktualnie wyświetlonych wykresów
         self.update()
         logging.debug(f'visualization: timer start {self.timer} ')
         logging.debug(f'visualization: set coordinates from ')
-        # self.timeList, self.freqList = [], []
-        self.xdata, self.ydata = [], []
 
     def countPlot(self):  # metoda do dodawania nowych wartości do wykresu
         self.PlotCount += 1
@@ -209,18 +236,21 @@ class PlotWindow(QMainWindow):
         self.startCatchData.setText('Pobieranie danych')
         self.currentDataMeansure()
         logging.debug(f'get data: set time')
+
         self.files.setDefaulfValue(
             name="meansurmentTime", position="default", element=self.comboTimeMeansure.default)
 
         if self.timemeansure["default"]:
             meansureThread = threading.Thread(
-                target=self.serial.meansureRange, args=(self.comboTimeMeansure.default, self.curentMeansureTime,))  # dane muszą zostać pobrane z wykorzystaniem wątka, inaczej program przestanie odpowiadać
+                target=self.serial.meansureRange, args=(self.comboTimeMeansure.default, self.curentMeansureTime, self.F0Param, self.FMParam, self.FLineParam))  # dane muszą zostać pobrane z wykorzystaniem wątka, inaczej program przestanie odpowiadać
         else:
             meansureThread = threading.Thread(
-                target=self.serial.meansureRange, args=(self.comboTimeMeansure.option, self.curentMeansureTime,))
+                target=self.serial.meansureRange, args=(self.comboTimeMeansure.option, self.curentMeansureTime, self.F0Param, self.FMParam, self.FLineParam))
         logging.debug(f'meansure thread: set {meansureThread}')
+
         self.serial.popUpSignal.connect(self.popUpTime)
         self.serial.finishSignal.connect(self.buttonState)
+
         logging.debug(f'meansure thread: start {meansureThread}')
         meansureThread.start()
 
@@ -313,16 +343,14 @@ class PlotWindow(QMainWindow):
         t = 0
         i = 0
         zeros = 0
-        calculated_dictionary = {'Nxi': [],
-                                 'Txi': [],
-                                 'fxi': [],
-                                 'Xxi': [],
-                                 't': []
-                                 #  'Błąd kwantowania (Nx+1)': [],
-                                 #  'Błąd bezwzględny': [],
-                                 #  'Błąd względny δ': [],
-                                 #  'Błąd względny δ%': [],
-                                 }
+        calculated_dictionary = {
+            'Nxi': [],
+            'Txi': [],
+            'fxi': [],
+            'Xxi': [],
+            't': []
+
+        }
         for nx in sheet:
             i += 1
             if nx == 0:
@@ -334,19 +362,13 @@ class PlotWindow(QMainWindow):
                 fxi = 1/Txi
                 Xxi = fxi/self.tenderness
                 t += Txi
-                # bwzg = round((Tx1-Txi), 8)
-                # wzg = round((bwzg/Txi), 8)
-                # Tx1 = (Nxi+1)*(1/self.F_CPU)
-                # proc_wzg = wzg*100
+
                 calculated_dictionary['Nxi'].append(Nxi)
                 calculated_dictionary['Txi'].append(Txi)
                 calculated_dictionary['fxi'].append(fxi)
                 calculated_dictionary['Xxi'].append(Xxi)
                 calculated_dictionary['t'].append(t)
-                # calculated_dictionary['Błąd kwantowania (Nx+1)'].append(Tx1)
-                # calculated_dictionary['Błąd bezwzględny'].append(bwzg)
-                # calculated_dictionary['Błąd względny δ'].append(wzg)
-                # calculated_dictionary['Błąd względny δ%'].append(proc_wzg)
+
         tmp_list = calculated_dictionary['Xxi']
         logging.info(f' count of zeros {zeros}')
         logging.info(
@@ -367,20 +389,22 @@ class PlotWindow(QMainWindow):
     # dodawanie skoroszuty pickle do poprzedniego skoroszytu
     def addToPickle(self, df_data, flag):
         if flag:
+            df_data.update(self.pickleDict)
+
             logging.debug(
-                f'pickle file: append sheet to header {self.path}{self.title_file} F_{self.FLineParam} F0_{self.F0Param} FM_{self.FMParam}.pbz2 ')
+                f'pickle file: append sheet to header {self.path}{self.title_file}.pbz2 ')
             tmp_df_data = pd.DataFrame(df_data)
-            # self.df_tmp = self.df_tmp.append(tmp_df_data, ignore_index=True)
+
             self.df_tmp = pd.concat(
                 [self.df_tmp, tmp_df_data], ignore_index=True)
             logging.debug(
                 f'pickle file:  {self.df_tmp} ')
             f = bz2.BZ2File(Path(
-                f'{self.path}{self.title_file} F_{self.FLineParam} F0_{self.F0Param} FM_{self.FMParam}.pbz2'), 'wb')
-
+                f'{self.path}{self.title_file}.pbz2'), 'wb')
             pickle.dump(self.df_tmp, f)
             f.close()
             self.df_tmp = None  # clear memory
+            self.pickleDict.clear()
         else:
             logging.debug(f'pickle file: hold headers {df_data} ')
             self.df_tmp = df_data
@@ -394,18 +418,18 @@ class PlotWindow(QMainWindow):
             title = self.fileMeansureTime
         config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
                   "Txi": [self.device, self.baudrate, self.tenderness]}
-        headers = ["Nxi", "Txi", "fxi", "t", "Xxi"]
+        headers = ["RAW L", "RAW H", "Nxi", "Txi", "fxi", "t", "Xxi"]
         self.title_file = f"pomiar z {title}"
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
-        if not Path(f'{self.path}{self.title_file}F_{self.FLineParam}F0_{self.F0Param}FM_{self.FMParam}.pbz2').is_file():
+        if not Path(f'{self.path}{self.title_file}.pbz2').is_file():
             sf = pd.DataFrame(config, columns=headers)
             self.addToPickle(sf, False)
             logging.debug(
-                f'pickle file create: created {self.path}{self.title_file} F_{self.FLineParam} F0_{self.F0Param} FM_{self.FMParam}.pbz2 ')
+                f'pickle file create: created {self.path}{self.title_file}.pbz2 ')
             return True
         else:
             logging.debug(
-                f'pickle file created before:{self.path}{self.title_file} F_{self.FLineParam} F0_{self.F0Param} FM_{self.FMParam}.pbz2 ')
+                f'pickle file created before:{self.path}{self.title_file}.pbz2 ')
             return False
 
     def openFile(self, filetype):
@@ -469,14 +493,11 @@ class PlotWindow(QMainWindow):
         freqListtmp = self.pickleSheet['Xxi'][7:]
         self.timeList = list(map(float, timeListtmp))
         self.freqList = list(map(float, freqListtmp))
-
-        # zippedDataPairs = zip(self.timeList, self.freqList)
-        self.pairs = zip(self.timeList, self.freqList)
         logging.debug(f'read existed file: done ')
-        # self.AnalyzedFileSignal.emit(zippedDataPairs)
+
         self.AnalyzedFileSignal.emit()
         self.pickleSheet = None
-        # self.AnalyzedFileSignal.emit(self.timeList, self.freqList)
+
         logging.debug(
             f'analyze threading: done ')
         self.convertToCsvButton.setEnabled(True)
@@ -521,19 +542,22 @@ class PlotWindow(QMainWindow):
 
     def modifyFileName(self, filename):  # metoda do modyfikacji nowej nazwy pliku
         filenameLists = filename.split()
-        timePartOfList = filenameLists[-1].split('.')
+        timerPattern = re.compile(r'\d{2}_\d{2}_\d{2}')
+        hzpattern = re.compile(r'(F.*[Hz]\b)')
+        hzConfig = re.findall(hzpattern, filename)
+        timePartOfList = re.findall(timerPattern, filename)[1]
         logging.debug(
-            f'parts of file title: file {filenameLists} {timePartOfList}')
-        new_title = f'{filenameLists[-2]} {timePartOfList[0]}'
+            f'parts of file title: file {hzConfig[0]} {timePartOfList}')
+        new_title = f' {timePartOfList} {hzConfig[0]}'
         logging.info(f'{new_title}')
         filenameLists.pop()
-        titleForCsv = f'{" ".join([str(part) for part in filenameLists])} {timePartOfList[0]}'
+        titleForCsv = f'{hzConfig[0]} {timePartOfList}'
         logging.info(f'{titleForCsv}')
         logging.debug(
-            f'one {" ".join([str(part) for part in filenameLists[:]])}')
-        logging.debug(f'two {timePartOfList[0]}')
+            f'one {hzConfig}')
+        logging.debug(f'two {timePartOfList}')
         logging.debug(
-            f'read raw file: file {filenameLists[-2]} {timePartOfList[0]} reading...')
+            f'read raw file: file {hzConfig[0]} {timePartOfList} reading...')
         logging.debug(
             f'title for csv: {titleForCsv}')
         return titleForCsv, new_title
@@ -545,7 +569,9 @@ class PlotWindow(QMainWindow):
             data = pickle.load(serialSheet)
         _, newFileName = self.modifyFileName(filename)
         logging.debug(
-            f'New file {newFileName} ')
+            f'New file {newFileName}')
+        self.pickleDict['RAW L'], self.pickleDict['RAW H'] = list(
+            data['RAW L'][500:]), list(data['RAW H'][500:])
         sheet = list(data['Nxi'][500:])
         logging.debug(f' lowest data {min(sheet)}')
         logging.info(f'length of sheet {len(sheet)}')
@@ -603,6 +629,3 @@ class PlotWindow(QMainWindow):
         self.prompt.close()
         self.prompt.message(
             msg=f'Przeanalizowano plik: {self.openedPath}')
-
-        # if self.prompt.exec():
-        #     time.sleep(10)

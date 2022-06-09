@@ -43,15 +43,16 @@ class SerialConnection(QObject):
         except Exception as ex:
             msg = "\n Brak podłączonej płytki lub błytka jest nie widoczna dla urządzenia"
             self.ierrors.message('Błąd', msg)
+            self.endConnection()
             if self.ierrors.exec():
                 self.ierrors.close()
-                self.endConnection()
 
     # konfigurowanie połączenia na podstawie parametrów
     def connect(self, device, baudrate, tenderness, endianness):
+
         try:
             self.endianness = endianness
-   
+
             if isinstance(tenderness, str):
                 tenderness = float(tenderness)
             else:
@@ -62,6 +63,7 @@ class SerialConnection(QObject):
             for port in self.ports:
                 if device in port.description:
                     self.COM = port[0]
+
             self.connection.port = f'{self.COM}'
             self.connection.baudrate = self.baudrate
             self.connection.bytesize = serial.EIGHTBITS
@@ -71,26 +73,26 @@ class SerialConnection(QObject):
             self.config = {'timestamp': ["Device", "Port", "Baudrate", "Tenderness"],
                            'Nxi': [device, self.connection.port, self.connection.baudrate, tenderness], }
             self.connection.close()
-            # self.connection.open()
+            self.connection.open()
 
         except ValueError as value:
             value = "\n Niepoprawna wartość czułości. Wybierz ponownie. Jesli jest zmiennoprzecinkowa wykorzystaj kropkę \" . \" "
             self.ierrors.message('Błąd', value)
+            self.endConnection()
             if self.ierrors.exec():
                 self.ierrors.close()
-                self.endConnection()
         except TypeError as ty:
             msg = "\n Brak wybranej płytki lub baundrate.Wybierz ponownie ustawienia płytki"
             self.ierrors.message('Błąd', msg)
+            self.endConnection()
             if self.ierrors.exec():
                 self.ierrors.close()
-                self.endConnection()
         except Exception as e:
             msg = "\n Brak podłaczonej płytki. Podłącz płytkę i zacznij ponownie."
             self.ierrors.message('Błąd', msg)
+            self.endConnection()
             if self.ierrors.exec():
                 self.ierrors.close()
-                self.endConnection()
 
     def rescan(self):  # metoda od poprawnego zakończenia połączenia po sprawdzeniu portów
         time.sleep(3)
@@ -104,14 +106,13 @@ class SerialConnection(QObject):
     # metoda od zapisu danych do pliku pickle w konfiguracji nagłówek+dane
     def compressed_pickle(self, df_data, flag):
         if flag:
-            # new_df = self.df_tmp.append(df_data, ignore_index=True)
             new_df = pd.concat(
                 [self.df_tmp, df_data], ignore_index=True)
             f = bz2.BZ2File(Path(f'{self.path}RAW {self.title}.pbz2'), 'wb')
             pickle.dump(new_df, f)
             logging.debug(f'file: done')
             f.close()
-            # self.df_tmp = None
+            self.df_tmp = None
         else:
             self.df_tmp = df_data
 
@@ -128,9 +129,9 @@ class SerialConnection(QObject):
         self.flag = False
     # wyliczenie czasu pomiaru na podstawie wybranego argumentu czasu w sekundach
 
-    def meansureRange(self, chooise, filename):
+    def meansureRange(self, chooise, datetime, F0, F, FM):
         logging.debug(f'meansure: set time')
-        self.title = filename
+        self.title = f'{datetime} {F0} {FM} {F}'
         self.chooise = chooise
         self.popUpSignal.emit(chooise)  # powiadomienie o początku pomiaru
         self.createPickleFile()
@@ -163,7 +164,6 @@ class SerialConnection(QObject):
         thread1 = threading.Thread(
             target=self.validTime, args=(timeOfExecution,))
         thread1.start()
-
         try:
             while self.flag:
 
@@ -175,7 +175,7 @@ class SerialConnection(QObject):
 
                 Ni1 = struct.unpack(f'{self.endianness}B',  raw1)[0]
                 Ni2 = struct.unpack(f'{self.endianness}B',  raw2)[0]
-            
+
                 Ni = struct.unpack(f'{self.endianness}H',  raw)[0]
                 valueDifference = Ni - self.lastValue
                 if valueDifference <= 0:
@@ -199,23 +199,22 @@ class SerialConnection(QObject):
                 self.ierrors.close()
                 call(["devcon.exe", "remove", "USB\VID_0D59&PID_0005*"])
                 self.rescan()
-                self.endConnection()
 
         except serial.serialutil.SerialException:
             msg = 'Błąd portu USB. Sprawdź połączenie i zacznij pomiary ponownie'
             self.ierrors.message('Błąd USB', msg)
+            self.endConnection()
             if self.ierrors.exec():
                 self.ierrors.close()
                 call(["devcon.exe", "remove", "USB\VID_0D59&PID_0005*"])
                 self.rescan()
-                self.endConnection()
 
         except ValueError:
             msg = 'Błąd wartości danych.Wykryto wartość None pochodzącą z podlączonego urządzenia.Sprawdź wartość baundrate'
             self.ierrors.message('Błąd danych', msg)
+            self.endConnection()
             if self.ierrors.exec():
                 self.ierrors.close()
-                self.endConnection()
 
     def endConnection(self):  # zamknięcie połączenia
         try:
