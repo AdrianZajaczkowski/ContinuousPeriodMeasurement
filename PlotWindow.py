@@ -416,8 +416,8 @@ class PlotWindow(QMainWindow):
             title = self.curentMeansureTime
         else:
             title = self.fileMeansureTime
-        config = {"Nxi": ["platforma:", "Baudrate:", "Czułość przetwornika"],
-                  "Txi": [self.device, self.baudrate, self.tenderness]}
+        config = {"RAW L": ["platforma:", "Baudrate:", "Czułość przetwornika"],
+                  "RAW H": [self.device, self.baudrate, self.tenderness]}
         headers = ["RAW L", "RAW H", "Nxi", "Txi", "fxi", "t", "Xxi"]
         self.title_file = f"pomiar z {title}"
         self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
@@ -516,7 +516,7 @@ class PlotWindow(QMainWindow):
             self.convertToCsvButton.setText('Konwertuj plik do CSV')
 
     def convertPickleToCsv(self):
-
+        print(self.openedfile[0])
         with bz2.BZ2File(str(self.openedfile[0]), 'rb') as pickleAnalyzedSheet:
             self.pickleSheet = pickle.load(pickleAnalyzedSheet)
         convertThread = threading.Thread(
@@ -543,21 +543,25 @@ class PlotWindow(QMainWindow):
     def modifyFileName(self, filename):  # metoda do modyfikacji nowej nazwy pliku
         filenameLists = filename.split()
         timerPattern = re.compile(r'\d{2}_\d{2}_\d{2}')
+        datePattern = re.compile(r'\d{4}_\d{2}_\d{2}')
         hzpattern = re.compile(r'(F.*[Hz]\b)')
         hzConfig = re.findall(hzpattern, filename)
-        timePartOfList = re.findall(timerPattern, filename)[1]
+        timePartOfFile = re.findall(timerPattern, filename)[1]
+        datePartOfFile = re.findall(datePattern, filename)[0]
+        newpath = "".join(part+" " for part in filenameLists[0:3])
+
         logging.debug(
-            f'parts of file title: file {hzConfig[0]} {timePartOfList}')
-        new_title = f' {timePartOfList} {hzConfig[0]}'
+            f'parts of file title: file {hzConfig[0]} {timePartOfFile} {datePartOfFile} ')
+        new_title = f' {datePartOfFile} {timePartOfFile} {hzConfig[0]}'
         logging.info(f'{new_title}')
-        filenameLists.pop()
-        titleForCsv = f'{hzConfig[0]} {timePartOfList}'
+
+        titleForCsv = f'{newpath}{datePartOfFile} {timePartOfFile} {hzConfig[0]}'
         logging.info(f'{titleForCsv}')
         logging.debug(
             f'one {hzConfig}')
-        logging.debug(f'two {timePartOfList}')
+        logging.debug(f'two {timePartOfFile}')
         logging.debug(
-            f'read raw file: file {hzConfig[0]} {timePartOfList} reading...')
+            f'read raw file: file {hzConfig[0]} {timePartOfFile} reading...')
         logging.debug(
             f'title for csv: {titleForCsv}')
         return titleForCsv, new_title

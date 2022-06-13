@@ -172,10 +172,8 @@ class SerialConnection(QObject):
                 raw1 = self.connection.read(1)
                 raw2 = self.connection.read(1)
                 raw = raw1+raw2
-
                 Ni1 = struct.unpack(f'{self.endianness}B',  raw1)[0]
                 Ni2 = struct.unpack(f'{self.endianness}B',  raw2)[0]
-
                 Ni = struct.unpack(f'{self.endianness}H',  raw)[0]
                 valueDifference = Ni - self.lastValue
                 if valueDifference <= 0:
@@ -185,9 +183,13 @@ class SerialConnection(QObject):
                 dictionary_serial['RAW H'] = Ni2
                 dictionary_serial['Ni'] = Ni
                 dictionary_serial['Nxi'] = valueDifference
-                self.storage.append(dictionary_serial.copy())
                 self.lastValue = Ni
+                self.storage.append(dictionary_serial.copy())
             self.writers(self.storage)
+
+            self.connection.reset_input_buffer()
+            self.connection.reset_output_buffer()
+            time.sleep(1)
             self.connection.close()
             logging.debug(f'self.connection: end')
 
@@ -219,9 +221,10 @@ class SerialConnection(QObject):
     def endConnection(self):  # zamknięcie połączenia
         try:
             self.meansureButtonState = False
+            self.connection.reset_input_buffer()
+            self.connection.reset_output_buffer()
             time.sleep(1)
             self.connection.close()
             time.sleep(1)
-            self.connection.flushOutput()
         except serial.serialutil.PortNotOpenError:
             self.connection.close()
