@@ -420,7 +420,9 @@ class PlotWindow(QMainWindow):
                   "RAW H": [self.device, self.baudrate, self.tenderness]}
         headers = ["RAW L", "RAW H", "Nxi", "Txi", "fxi", "t", "Xxi"]
         self.title_file = f"pomiar z {title}"
-        self.path = r'D:\\MeansurePerioid\\wyniki pomiarów\\'
+        # self.current
+        self.path = f'...\\wyniki pomiarów\\'
+
         if not Path(f'{self.path}{self.title_file}.pbz2').is_file():
             sf = pd.DataFrame(config, columns=headers)
             self.addToPickle(sf, False)
@@ -516,7 +518,7 @@ class PlotWindow(QMainWindow):
             self.convertToCsvButton.setText('Konwertuj plik do CSV')
 
     def convertPickleToCsv(self):
-        print(self.openedfile[0])
+
         with bz2.BZ2File(str(self.openedfile[0]), 'rb') as pickleAnalyzedSheet:
             self.pickleSheet = pickle.load(pickleAnalyzedSheet)
         convertThread = threading.Thread(

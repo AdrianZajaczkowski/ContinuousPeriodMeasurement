@@ -26,7 +26,7 @@ class SerialConnection(QObject):
         self.timePopUp = None
         self.df_tmp, self.value = None, 1
         self.title = ''
-        self.flag = ''
+        self.validTimeFlag = ''
         self.config = ''
         self.path = ''
         self.meansureButtonState = True
@@ -98,7 +98,7 @@ class SerialConnection(QObject):
         time.sleep(3)
         call(["devcon.exe", "rescan"])
 
-    def writers(self, dictionaryList):  # zapis danych w słowniku
+    def saveData(self, dictionaryList):  # zapis danych w słowniku
         logging.debug(f'file: create part2. Data=get')
         df_final = pd.DataFrame.from_dict(dictionaryList)
         self.compressed_pickle(df_final, True)
@@ -126,7 +126,7 @@ class SerialConnection(QObject):
     def validTime(self, amountOfSeconds):  # metoda od odliczania czasu pomiaru
         time.sleep(amountOfSeconds)
         logging.debug(f'readData: stop with {amountOfSeconds}s')
-        self.flag = False
+        self.validTimeFlag = False
     # wyliczenie czasu pomiaru na podstawie wybranego argumentu czasu w sekundach
 
     def meansureRange(self, chooise, datetime, F0, F, FM):
@@ -149,7 +149,7 @@ class SerialConnection(QObject):
 
     def readValue(self, timeOfExecution):  # odczyt danych z mikrokontrolera
 
-        if not self.flag:
+        if not self.validTimeFlag:  # jeśli nie rozpoczęto pomiaru
             try:
                 logging.debug(f'self.connection: start')
                 self.connection.open()
@@ -160,24 +160,26 @@ class SerialConnection(QObject):
         logging.debug(f'readData: start {timeOfExecution}')
         dictionary_serial = {'timestamp': None, 'RAW L': None, 'RAW H': None, 'Ni': None,
                              'Nxi': None}
-        self.flag = True
+        self.validTimeFlag = True
         thread1 = threading.Thread(
-            target=self.validTime, args=(timeOfExecution,))
+            target=self.validTime, args=(timeOfExecution,))  # rozpoczęcie odliczania czasu pomiaru
         thread1.start()
         try:
-            while self.flag:
+            while self.validTimeFlag:
 
                 now = datetime.now()
                 timeNow = now.strftime("%H:%M:%S")
-                raw1 = self.connection.read(1)
+                raw1 = self.connection.read(1)  # odczyt danych
                 raw2 = self.connection.read(1)
                 raw = raw1+raw2
-                Ni1 = struct.unpack(f'{self.endianness}B',  raw1)[0]
+                Ni1 = struct.unpack(f'{self.endianness}B',  raw1)[
+                    0]  # rozpakowanie odebranych danych
                 Ni2 = struct.unpack(f'{self.endianness}B',  raw2)[0]
                 Ni = struct.unpack(f'{self.endianness}H',  raw)[0]
-                valueDifference = Ni - self.lastValue
+                valueDifference = Ni - self.lastValue  # obliczanie stanów licznika
                 if valueDifference <= 0:
                     valueDifference += self.overflow
+                # zapis stanów licznika do słownika
                 dictionary_serial['timestamp'] = timeNow
                 dictionary_serial['RAW L'] = Ni1
                 dictionary_serial['RAW H'] = Ni2
@@ -185,12 +187,12 @@ class SerialConnection(QObject):
                 dictionary_serial['Nxi'] = valueDifference
                 self.lastValue = Ni
                 self.storage.append(dictionary_serial.copy())
-            self.writers(self.storage)
+            self.saveData(self.storage)  # zapis danych do pliku
 
-            self.connection.reset_input_buffer()
+            self.connection.reset_input_buffer()  # czyszczenie buffora danych seriala
             self.connection.reset_output_buffer()
             time.sleep(1)
-            self.connection.close()
+            self.connection.close()  # zamknięcie połączenia
             logging.debug(f'self.connection: end')
 
         except serial.SerialException as e:

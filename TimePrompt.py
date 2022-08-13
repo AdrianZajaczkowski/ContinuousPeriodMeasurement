@@ -12,7 +12,7 @@ class TimePrompt(QDialog):
         frame.moveCenter(position)
         self.move(frame.topLeft())
         self.msg = QLabel()
-        self.msg.setFont(QFont('Times', 15))
+        self.msg.setFont(QFont('Times', 12))
         self.msg.setWordWrap(True)
         self.layout = QVBoxLayout()
         self.layout.addWidget(self.msg)
