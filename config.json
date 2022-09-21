@@ -1,0 +1,92 @@
+{
+    "baudrate": {
+        "default": "9600",
+        "recovery": [
+            "300",
+            "600",
+            "1200",
+            "2400",
+            "4800",
+            "9600",
+            "14400",
+            "19200",
+            "28800",
+            "38400",
+            "57600",
+            "76800",
+            "115200",
+            "230400",
+            "250000",
+            "500000",
+            "1000000",
+            "2000000"
+        ],
+        "standard": [
+            "300",
+            "600",
+            "1200",
+            "2400",
+            "4800",
+            "9600",
+            "14400",
+            "19200",
+            "28800",
+            "38400",
+            "57600",
+            "76800",
+            "115200",
+            "230400",
+            "250000",
+            "500000",
+            "1000000",
+            "2000000"
+        ]
+    },
+    "devices": {
+        "default": "Arduino Mega 2560 (COM6)",
+        "standard": [
+            "Arduino Mega 2560 (COM6)"
+        ]
+    },
+    "meansurmentTime": {
+        "default": "15 s",
+        "recovery": [
+            "1 s",
+            "5 s",
+            "15 s",
+            "1 min",
+            "3 min",
+            "10 min",
+            "1 h"
+        ],
+        "standard": [
+            "1 s",
+            "5 s",
+            "15 s",
+            "1 min",
+            "3 min",
+            "10 min",
+            "1 h",
+            "30 min"
+        ]
+    },
+    "tenderness": {
+        "default": "1",
+        "recovery": [
+            "1"
+        ],
+        "standard": [
+            "1"
+        ]
+    },
+    "text": {
+        "Autor": [
+            "Wykona\u0142: Adrian Zaj\u0105czkowski",
+            15
+        ],
+        "Start": [
+            "Ci\u0105g\u0142y pomiar okresu sygna\u0142u przy wykorzystaniu platformy Arduino",
+            20
+        ]
+    }
+}
