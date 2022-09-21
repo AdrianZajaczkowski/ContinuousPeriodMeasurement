@@ -47,8 +47,6 @@ class WelcomeWindow(QWidget):
         self.resetTendernessButton = QPushButton('Reset czułości', self)
         self.goButton = QPushButton('Zacznij pomiary', self)
 
-        # przesyłanie danych z okien wyboru do ponownego zapisu do pliku config.json
-        # takie działanie ma na celu zapis nowych danych do pliku i późniejsze wykorzystanie danych
         addDevice = partial(self.files.addItem, self, self.comboDevices,
                             self._devices, "standard", 'Platforma', 'Wpisz nową platformę')
         addBaudrate = partial(self.files.addItem, self, self.comboBaudrate,
@@ -128,10 +126,6 @@ class WelcomeWindow(QWidget):
         self.tendernessLabel = QGridLayout()
         self.endiannessLabel = QGridLayout()
 
-        # self.radioGroup = QButtonGroup()
-        # self.radioGroup.addButton(self.radioEndianness1)
-        # self.radioGroup.addButton(self.radioEndianness2)
-        # rozmiezczenie elementów w interfejsie okna
         self.specify.addWidget(self.logoLabel, 0, 0, 1, 0)
         self.specify.addWidget(self.descr, 1, 0, 2, 3)
         self.specify.addWidget(self.author, 2, 0, 1, 0)
@@ -171,7 +165,6 @@ class WelcomeWindow(QWidget):
         self.centralText.setAlignment(
             QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter)
         return self.centralText
-    # automatyczne zmienianie wielkości tekstu pod wpływem zmiany wielkości okna
 
     def resizeText(self, event):
         defaultSize = 9

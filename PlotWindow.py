@@ -61,7 +61,6 @@ class PlotWindow(QMainWindow):
 
     def closeConnection(self):
         self.serial.endConnection()
-    # NOTE przeniesiono
 
     def currentDataMeansure(self):  # generowanie aktualnej daty
         self.currentDay = datetime.now()
@@ -337,7 +336,6 @@ class PlotWindow(QMainWindow):
             self.changePlotPoints = True
 
     def analyzeDataFromFile(self, sheet):  # Metoda do wizualizacji danych
-        # note może być wartość 0, uwzględnij to
         logging.info(f'analyzeThread: start')
         logging.debug(f'analyze raw file: start ')
         t = 0

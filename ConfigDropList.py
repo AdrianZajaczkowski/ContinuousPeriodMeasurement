@@ -25,15 +25,11 @@ class ConfigDropList:
         data = self.showData()
         data[part][position].append(param)
         self.jsonDump(data)
-        # with open(self.configPath, 'w') as devi:
-        #     json.dump(data, devi, sort_keys=True, indent=4)
 
     def setDefaulfValue(self, name, position, element):
         data = self.showData()
         data[name][position] = element
         self.jsonDump(data)
-        # with open(self.configPath, 'w') as devi:
-        #     json.dump(data, devi, sort_keys=True, indent=4)
 
     def addItem(self, object, combo, pos, element, title, monit):
         name = Monit(object)
@@ -42,10 +38,6 @@ class ConfigDropList:
             gadget = name.inputmsg.text()
             self.change(part=pos, position=element, param=gadget)
             combo.new(gadget)
-        # else:
-        #     pass
-    # metoda zwracajaca wszystko z pliku configuracyjnego
-    # reset mikrokontrolerów do pozycji domyslnych
 
     def defaultDevices(self, part, position):
         data = self.showData()
@@ -59,8 +51,6 @@ class ConfigDropList:
         data = self.showData()
         data[part][position] = data[part]["recovery"]
         self.jsonDump(data)
-        # with open(self.configPath, 'w') as devi:
-        #     json.dump(self.old, devi, sort_keys=True, indent=4)
 
     def resetList(self, combo, param, position, option=None):
         if option == "device":
@@ -70,9 +60,3 @@ class ConfigDropList:
         self._new = self.showData()
         combo.clear()
         combo.update(self._new[param][position])
-
-# app = ConfigFiles()
-
-# print(app.showData())
-# app.setDefaulfValue(name="baudrate", position="default", element="b")
-# print(app.showData())

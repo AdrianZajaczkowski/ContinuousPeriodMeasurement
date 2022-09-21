@@ -45,6 +45,6 @@ class ComboList(QComboBox):
 
     def setData(self, text):
         self.option = text
-        # print(text)
+
         if not isinstance(text, list):
             self.default = text
